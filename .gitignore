@@ -1,3 +1,6 @@
 .venv
 .venv.local
 .venv.*.local
+
+ArtBench-10/
+__pycache__/
