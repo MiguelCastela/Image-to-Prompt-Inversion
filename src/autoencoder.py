@@ -1,10 +1,21 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+
+
 class ConvVAE(nn.Module):
     def __init__(self, latent_dim=32):
         super().__init__()
         self.latent_dim = latent_dim
 
         self.enc_conv = nn.Sequential(
-            nn.Conv2d(1, 32, 3, stride=2, padding=1),
+            nn.Conv2d(3, 32, 3, stride=2, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Conv2d(32, 64, 3, stride=2, padding=1),
@@ -16,16 +27,16 @@ class ConvVAE(nn.Module):
         )
 
         # Add mean and log-variance heads from flattened conv features.
-        self.fc_mu = nn.Linear(128 * 7 * 7, latent_dim)
-        self.fc_logvar = nn.Linear(128 * 7 * 7, latent_dim)
+        self.fc_mu = nn.Linear(128 * 8 * 8, latent_dim)
+        self.fc_logvar = nn.Linear(128 * 8 * 8, latent_dim)
 
-        self.dec_fc = nn.Linear(latent_dim, 128 * 7 * 7)
+        self.dec_fc = nn.Linear(latent_dim, 128 * 8 * 8)
         self.dec_conv = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 3, stride=1, padding=1),
             nn.ReLU(),
             nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 1, 3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(32, 3, 3, stride=2, padding=1, output_padding=1),
             nn.Sigmoid(),
         )
 
@@ -40,7 +51,7 @@ class ConvVAE(nn.Module):
         return mu + std * eps
 
     def decode(self, z):
-        h = self.dec_fc(z).view(-1, 128, 7, 7)
+        h = self.dec_fc(z).view(-1, 128, 8, 8)
         return self.dec_conv(h)
 
     def forward(self, x):
@@ -69,7 +80,7 @@ def train_vae(model, loader, optimizer, epochs=20, beta=0.7):
     hist = []
     for ep in range(epochs):
         tl, tr, tk = 0.0, 0.0, 0.0
-        for x, _ in tqdm(loader, leave=False):
+        for x, _, _ in tqdm(loader, leave=False):
             x = x.to(device)
             xhat, mu, logvar = model(x)
 

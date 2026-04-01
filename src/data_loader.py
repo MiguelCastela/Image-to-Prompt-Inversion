@@ -67,7 +67,6 @@ BATCH_SIZE = 64
 NUM_WORKERS = 2
 
 
-'''
 def safe_num_workers(requested: int) -> int:
     # Avoid notebook multiprocessing pickling issues on macOS/ipykernel.
     if "ipykernel" in sys.modules and int(requested) > 0:
@@ -83,7 +82,7 @@ transform = T.Compose([
     T.CenterCrop(IMAGE_SIZE),
     T.ToTensor(),  # outputs [0,1]
 ])
-'''
+
 
 class HFDatasetTorch(Dataset):
     def __init__(self, hf_split, transform=None, indices=None):
@@ -203,7 +202,7 @@ show_batch_grid(train_loader, class_names, n_images=36, nrow=6, title='ArtBench-
 
 
 
-
+'''
 def export_split_to_folder(
     loader: DataLoader,
     class_names: list[str],
@@ -256,3 +255,4 @@ EXPORT_ROOT = Path('exported_data')
 EXPORT_ROOT.mkdir(parents=True, exist_ok=True)
 
 export_split_to_folder(train_loader, class_names, EXPORT_ROOT / 'train_subset', max_images=500)
+'''
