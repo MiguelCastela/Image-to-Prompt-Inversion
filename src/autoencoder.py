@@ -6,13 +6,14 @@ from tqdm import tqdm
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
-
-
 class ConvVAE(nn.Module):
-    def __init__(self, latent_dim=32):
+    def __init__(self, latent_dim=32, num_classes=10, class_embed_dim=32):
         super().__init__()
         self.latent_dim = latent_dim
+        self.num_classes = num_classes
+        self.class_embed_dim = class_embed_dim
+
+        self.class_embed = nn.Embedding(num_classes, class_embed_dim)
 
         self.enc_conv = nn.Sequential(
             nn.Conv2d(3, 32, 3, stride=2, padding=1),
@@ -26,11 +27,12 @@ class ConvVAE(nn.Module):
             nn.ReLU(),
         )
 
-        # Add mean and log-variance heads from flattened conv features.
-        self.fc_mu = nn.Linear(128 * 8 * 8, latent_dim)
-        self.fc_logvar = nn.Linear(128 * 8 * 8, latent_dim)
+        enc_in_dim = 128 * 8 * 8 + class_embed_dim
+        self.fc_mu = nn.Linear(enc_in_dim, latent_dim)
+        self.fc_logvar = nn.Linear(enc_in_dim, latent_dim)
 
-        self.dec_fc = nn.Linear(latent_dim, 128 * 8 * 8)
+        dec_in_dim = latent_dim + class_embed_dim
+        self.dec_fc = nn.Linear(dec_in_dim, 128 * 8 * 8)
         self.dec_conv = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 3, stride=1, padding=1),
             nn.ReLU(),
@@ -40,9 +42,11 @@ class ConvVAE(nn.Module):
             nn.Sigmoid(),
         )
 
-    def encode(self, x):
+    def encode(self, x, y):
         h = self.enc_conv(x)
         h = h.view(h.size(0), -1)
+        y_embed = self.class_embed(y)
+        h = torch.cat([h, y_embed], dim=1)
         return self.fc_mu(h), self.fc_logvar(h)
 
     def reparameterize(self, mu, logvar):
@@ -50,14 +54,16 @@ class ConvVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + std * eps
 
-    def decode(self, z):
-        h = self.dec_fc(z).view(-1, 128, 8, 8)
+    def decode(self, z, y):
+        y_embed = self.class_embed(y)
+        z_cond = torch.cat([z, y_embed], dim=1)
+        h = self.dec_fc(z_cond).view(-1, 128, 8, 8)
         return self.dec_conv(h)
 
-    def forward(self, x):
-        mu, logvar = self.encode(x)
+    def forward(self, x, y):
+        mu, logvar = self.encode(x, y)
         z = self.reparameterize(mu, logvar)
-        xhat = self.decode(z)
+        xhat = self.decode(z, y)
         return xhat, mu, logvar
 
 
@@ -80,9 +86,10 @@ def train_vae(model, loader, optimizer, epochs=20, beta=0.7):
     hist = []
     for ep in range(epochs):
         tl, tr, tk = 0.0, 0.0, 0.0
-        for x, _, _ in tqdm(loader, leave=False):
+        for x, y, _ in tqdm(loader, leave=False):
             x = x.to(device)
-            xhat, mu, logvar = model(x)
+            y = y.to(device)
+            xhat, mu, logvar = model(x, y)
 
             b = x.size(0)
             # compute sums then convert to per-sample inside vae_loss
@@ -105,9 +112,10 @@ def evaluate_vae(model, loader, beta=0.7):
     model.eval()
     tl, tr, tk, tm, ta, n = 0.0, 0.0, 0.0, 0.0, 0.0, 0
     with torch.no_grad():
-        for x, _ in loader:
+        for x, y, _ in loader:
             x = x.to(device)
-            xhat, mu, logvar = model(x)
+            y = y.to(device)
+            xhat, mu, logvar = model(x, y)
             b = x.size(0)
 
             # use sums internally and convert to per-sample in vae_loss
