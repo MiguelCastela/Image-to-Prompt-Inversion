@@ -7,13 +7,166 @@ from cDCGAN import CGenerator, CDiscriminator, train_cgan, init_weights
 
 # Import from your provided files
 from autoencoder import ConvVAE, train_vae
-from data_loader import train_loader_from_csv, class_names
+from data_loader import setup_artbench_from_csv_subset
 from diffusion import GaussianDiffusion, PixelUNet, train_diffusion
 
-def main():
+import numpy as np
+from evaluation import extract_inception_features, feature_statistics, frechet_distance, kid_score
+
+
+from torchvision.models import inception_v3, Inception_V3_Weights
+
+
+EVAL_CONFIG = {
+    'reference_count': 5000, 
+    'generated_count': 5000,
+    'kid_subsets': 50,
+    'kid_subset_size': 100,
+    'batch_size': 32
+}
+
+
+def evaluate_model_protocol(model, model_type, loader, device, feature_extractor, latent_dim=128):
+
+
+    fid_scores = []
+    kid_means = []
+    
+    # 1. Prepare Real Reference (Done once to save time)
+    real_images = get_real_samples(loader, count=5000) # Defined in previous response
+    real_features = extract_inception_features(real_images, feature_extractor, device=device)
+    mu_real, sigma_real = feature_statistics(real_features)
+
+    # 2. Statistical Repetition Loop (Mandatory: 10 times )
+    for seed in range(10):
+        torch.manual_seed(seed)
+        print(f"  Evaluating seed {seed+1}/10...")
+        
+        # Generate 5,000 samples 
+        gen_images = generate_samples(model, model_type, count=5000, latent_dim=latent_dim, device=device)
+        gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
+        
+        # Compute FID [cite: 74, 179]
+        mu_gen, sigma_gen = feature_statistics(gen_features)
+        fid = frechet_distance(mu_real, sigma_real, mu_gen, sigma_gen)
+        fid_scores.append(fid)
+        
+        # Compute KID (50 subsets of 100 [cite: 77, 181])
+        k_mean, _ = kid_score(real_features, gen_features, subset_size=100, num_subsets=50)
+        kid_means.append(k_mean)
+
+    print(f"\nResults for {model_type.upper()} over 10 seeds:")
+    print(f"  FID: {np.mean(fid_scores):.4f} ± {np.std(fid_scores):.4f}")
+    print(f"  KID: {np.mean(kid_means):.4f} ± {np.std(kid_means):.4f}\n")
+
+
+
+def base_evaluation(model, model_type, loader, device, feature_extractor, latent_dim=128):
+
+
+    print("\n--- Starting Quantitative Evaluation Phase ---")
+
+    feature_extractor = build_feature_extractor(device)
+    # 1) Set extraction batch size
+    batch_size = EVAL_CONFIG['batch_size']
+
+
+    print("Running Baseline Sanity Checks...")
+    real_eval_images = get_real_samples(loader, count=5000)
+    noise_images = torch.rand(5000, 3, 32, 32) # Standard RGB noise baseline
+
+
+    
+    # 2) Extract features
+    print("Extracting features (Real, Generated, Noise)...")
+    # Note: Use extract_inception_features from the notebook context
+    feats_real = extract_inception_features(real_eval_images, feature_extractor, batch_size=batch_size)
+    feats_noise = extract_inception_features(noise_images, feature_extractor, batch_size=batch_size)
+
+    # 3) Split real features for sanity check (Real A vs Real B)
+    mid = len(feats_real) // 2
+    real_a, real_b = feats_real[:mid], feats_real[mid:]
+
+    # 4) Align Generated and Noise counts with the Real halves for consistency
+    noise_a = feats_noise[:mid]
+
+    # 5) Compute statistics (mu and sigma) for all groups
+    mu_ra, sigma_ra = feature_statistics(real_a)
+    mu_rb, sigma_rb = feature_statistics(real_b)
+    mu_na, sigma_na = feature_statistics(noise_a)
+
+    # 6) Compute FID comparisons
+    fid_sanity = frechet_distance(mu_ra, sigma_ra, mu_rb, sigma_rb)
+    fid_noise = frechet_distance(mu_ra, sigma_ra, mu_na, sigma_na)
+
+    # 7) Compute KID comparisons (using enunciado's 50 subsets of 100) 
+    kid_sanity = kid_score(real_a, real_b, subset_size=EVAL_CONFIG['kid_subset_size'], num_subsets=EVAL_CONFIG['kid_subsets'])
+    kid_noise = kid_score(real_a, noise_a, subset_size=EVAL_CONFIG['kid_subset_size'], num_subsets=EVAL_CONFIG['kid_subsets'])
+
+    # 8) Print results
+    print(f"\n--- Evaluation Results (Protocol: {EVAL_CONFIG['reference_count']} images) ---")
+    print(f"Sanity (Real vs Real): FID: {fid_sanity:.4f} | KID: {kid_sanity[0]:.4f} ± {kid_sanity[1]:.4f}")
+    print(f"Baseline (Real vs Noise): FID: {fid_noise:.4f} | KID: {kid_noise[0]:.4f} ± {kid_noise[1]:.4f}")
+
+
+def build_feature_extractor(device):
+    """Initializes the Inception-v3 model for feature extraction."""
+    # Load pretrained Inception-v3 
+    model = inception_v3(weights=Inception_V3_Weights.DEFAULT, transform_input=False)
+    # Remove the final pooling/FC layer to get raw 2048-dim features
+    model.fc = torch.nn.Identity()
+    model.eval()
+    return model.to(device)
+
+
+def get_real_samples(loader, count=5000):
+    """Extract real images from the data loader."""
+    images = []
+    for batch in loader:
+        if isinstance(batch, (list, tuple)):
+            imgs = batch[0]  # Handle (image, label) tuples
+        else:
+            imgs = batch
+        images.append(imgs)
+        if len(torch.cat(images)) >= count:
+            break
+    return torch.cat(images)[:count]
+
+def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu', schedule=None):
+    """Generate samples from the model using appropriate family logic."""
+    samples = []
+    batch_size = 64
+    model.eval()
+    
+    with torch.no_grad():
+        while len(torch.cat(samples) if samples else []) < count:
+            if model_type == 'vae':
+                z = torch.randn(batch_size, latent_dim).to(device)
+                batch = model.decode(z)
+            elif model_type == 'gan':
+                z = torch.randn(batch_size, latent_dim).to(device)
+                labels = torch.randint(0, 10, (batch_size,)).to(device)
+                batch = model(z, labels)
+            elif model_type == 'diffusion':
+                # Diffusion needs the scheduler's reverse loop 
+                batch = schedule.p_sample_loop(model, shape=(batch_size, 3, 32, 32))
+                batch = (batch + 1.0) / 2.0  # Denormalize to [0, 1]
+            
+            samples.append(batch.cpu())
+            
+    return torch.cat(samples)[:count]
+
+    
+
+
+
+def pipeline():
     # 1. Setup Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+
+    data_state = setup_artbench_from_csv_subset(project_root=Path(__file__).resolve().parent.parent)
+    train_loader = data_state['train_loader']
 
     # 2. Hyperparameters (Project requirement: report these [cite: 26])
     LATENT_DIM = 128
@@ -31,7 +184,7 @@ def main():
     print("Starting training on ArtBench 20% subset...")
     history = train_vae(
         model, 
-        train_loader_from_csv, 
+        train_loader, 
         optimizer, 
         epochs=EPOCHS, 
         beta=BETA
@@ -52,7 +205,7 @@ def main():
 
 
     print("Starting GAN training on 20% subset...")
-    gan_history = train_cgan(gen, disc, train_loader_from_csv, LATENT_DIM, epochs=EPOCHS)
+    gan_history = train_cgan(gen, disc, train_loader, LATENT_DIM, epochs=EPOCHS)
 
     # Save cDCGAN training curves and generated samples to match other model outputs.
     save_path = Path('results')
@@ -86,14 +239,6 @@ def main():
         save_image(samples, save_path / 'vae_generated_samples.png', nrow=8)
         print(f"Saved qualitative samples to {save_path}")
 
-    # 6. Quantitative Evaluation Protocol (Conceptual)
-    # Project requires FID and KID with 5000 samples [cite: 70, 72, 170]
-    print("\nEvaluation Protocol Reminder:")
-    print("- Generate 5,000 samples for final evaluation[cite: 70].")
-    print("- Compute FID (Full set) and KID (50 subsets of 100)[cite: 74, 77].")
-    print("- Repeat 10 times with different random seeds for statistical reporting[cite: 80, 176].")
-
-
     # --- PART 2: DIFFUSION (New) ---
     print("\n--- Starting Diffusion Phase ---")
     
@@ -111,7 +256,7 @@ def main():
     print("Training Pixel-space Diffusion on 20% subset...")
     diff_history = train_diffusion(
         model=diff_model,
-        loader=train_loader_from_csv,
+        loader=train_loader,
         schedule=schedule,
         epochs=DIFF_EPOCHS,
         lr=DIFF_LR
@@ -132,5 +277,23 @@ def main():
 
 
 
+    print("\n--- Starting Quantitative Evaluation Phase ---")
+    feature_extractor = build_feature_extractor(device)
+
+
+
+
+    base_evaluation(model, 'vae', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    base_evaluation(gen, 'gan', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    base_evaluation(diff_model, 'diffusion', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+
+
+    evaluate_model_protocol(model, 'vae', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    evaluate_model_protocol(gen, 'gan', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    evaluate_model_protocol(diff_model, 'diffusion', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+
+
+
+
 if __name__ == "__main__":
-    main()
+    pipeline()
