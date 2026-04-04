@@ -134,7 +134,7 @@ def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu'
                 batch = model(z, labels)
             elif model_type == 'diffusion':
                 batch = schedule.p_sample_loop(model, shape=(batch_size, 3, 32, 32))
-                batch = (batch + 1.0) / 2.0
+                batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
             
             samples.append(batch.cpu())
             
@@ -261,7 +261,7 @@ def pipeline():
         # We still produce 100 samples and arrange them as a 10x10 grid.
         total_samples = 10 * 10
         samples = schedule.p_sample_loop(diff_model, shape=(total_samples, 3, 32, 32))
-        samples = (samples + 1.0) / 2.0
+        samples = torch.clamp((samples + 1.0) / 2.0, 0.0, 1.0)
         save_image(samples, save_path / 'diffusion_generated_samples.png', nrow=10)
         print(f"Saved diffusion samples to {save_path}")
 
