@@ -218,8 +218,7 @@ def pipeline():
         class_grid = torch.arange(num_styles, device=device).repeat_interleave(samples_per_style)
         noise = torch.randn(class_grid.size(0), LATENT_DIM, device=device)
         gan_samples = gen(noise, class_grid)
-        # If generator outputs in [-1, 1], denormalize to [0,1] for saving
-        gan_samples = (gan_samples + 1.0) / 2.0
+        # Already bounded to [0,1] with Sigmoid
         save_image(gan_samples, save_path / 'cwgan_gp_generated_samples.png', nrow=samples_per_style)
         print(f"Saved cWGAN-GP results to {save_path}")
 
