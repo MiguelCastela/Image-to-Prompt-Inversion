@@ -44,6 +44,10 @@ class ConvVAE(nn.Module):
 
     def encode(self, x, y):
         h = self.enc_conv(x)
+        y_embed = self.class_embed(y).view(h.size(0), self.class_embed_dim, 1, 1)
+        y_embed = y_embed.expand(-1, -1, h.size(2), h.size(3))
+        h = torch.cat([h, y_embed], dim=1) 
+        h = h.view(h.size(0), -1)
         h = h.view(h.size(0), -1)
         y_embed = self.class_embed(y)
         h = torch.cat([h, y_embed], dim=1)

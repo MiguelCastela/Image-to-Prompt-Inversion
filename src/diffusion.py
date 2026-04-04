@@ -102,27 +102,35 @@ class GaussianDiffusion:
 
     @torch.no_grad()
     def p_sample(self, model, x, t, t_index):
-        """
-        Reverse diffusion step: Sample x_{t-1} given x_t and the model.
-        """
+        # Get current alpha/beta values
         betas_t = self._get_index(self.betas, t, x.shape)
-        sqrt_one_minus_alpha_cumprod_t = self._get_index(self.sqrt_one_minus_alphas_cumprod, t, x.shape)
-        sqrt_recip_alphas_t = 1. / torch.sqrt(self._get_index(self.alphas, t, x.shape))
+        alpha_cumprod_t = self._get_index(self.alphas_cumprod, t, x.shape)
+        alpha_cumprod_prev_t = self._get_index(self.alphas_cumprod_prev, t, x.shape)
         
-        # Predict noise
         predicted_noise = model(x, t)
         
-        # Compute mean
-        model_mean = sqrt_recip_alphas_t * (x - betas_t * predicted_noise / sqrt_one_minus_alpha_cumprod_t)
+        # 1. Predict x_0 from the noise
+        sqrt_recip_alphas_cumprod = 1.0 / torch.sqrt(alpha_cumprod_t)
+        sqrt_recipm1_alphas_cumprod = torch.sqrt(1.0 / alpha_cumprod_t - 1)
+        pred_x0 = sqrt_recip_alphas_cumprod * x - sqrt_recipm1_alphas_cumprod * predicted_noise
         
+        # 2. Clip x_0 to [-1, 1] to prevent values from blowing up to white
+        pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
+        
+        # 3. Compute posterior mean using the clipped x_0
+        posterior_mean_coef1 = self._get_index(self.posterior_mean_coef1, t, x.shape)
+        posterior_mean_coef2 = self._get_index(self.posterior_mean_coef2, t, x.shape)
+        model_mean = posterior_mean_coef1 * pred_x0 + posterior_mean_coef2 * x
+
         if t_index == 0:
             return model_mean
         else:
             posterior_variance_t = self._get_index(self.posterior_variance, t, x.shape)
             noise = torch.randn_like(x)
-            # Clip step to be safe, or just add variance
             return model_mean + torch.sqrt(posterior_variance_t) * noise
+        
 
+        
     @torch.no_grad()
     def p_sample_loop(self, model, shape):
         """
