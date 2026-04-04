@@ -280,13 +280,8 @@ def pipeline():
     print("\n--- Starting Quantitative Evaluation Phase ---")
     feature_extractor = build_feature_extractor(device)
 
-
-
-
-    base_evaluation(model, 'vae', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
-    base_evaluation(gen, 'gan', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
-    base_evaluation(diff_model, 'diffusion', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
-
+    # Run the sanity check just once
+    base_evaluation(None, 'baseline', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
 
     evaluate_model_protocol(model, 'vae', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
     evaluate_model_protocol(gen, 'gan', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)

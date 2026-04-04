@@ -233,9 +233,9 @@ class LatentDenoiseNetwork(nn.Module):
 class PixelUNet(nn.Module):
     """
     Standard UNet for Diffusion on image space.
-    Fits 28x28 MNIST images.
+    Fits 32x32 ArtBench images.
     """
-    def __init__(self, in_channels=1, model_channels=64):
+    def __init__(self, in_channels=3, model_channels=64):
         super().__init__()
         # Time Embedding
         self.time_embed = nn.Sequential(
@@ -439,39 +439,40 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None)
         running = 0.0
         n_batches = 0
 
-    for x, _, _ in tqdm(loader, desc=f'Diff epoch {epoch + 1}/{epochs}', leave=False):
-        x = x.to(device)
-        if encode_fn is not None:
-            with torch.no_grad():
-                # For Latent Diffusion: encode pixels to latent space
-                mu, _ = encode_fn(x)
-                x = mu
+        for x, _, _ in tqdm(loader, desc=f'Diff epoch {epoch + 1}/{epochs}', leave=False):
+            x = x.to(device)
+            x = x * 2.0 - 1.0  # Scale images from [0, 1] to [-1, 1] for Gaussian noise
+            if encode_fn is not None:
+                with torch.no_grad():
+                    # For Latent Diffusion: encode pixels to latent space
+                    mu, _ = encode_fn(x)
+                    x = mu
 
-        # --- TODO START ---
-        bs = x.size(0)
-        # 1) Sample random diffusion steps
-        t = torch.randint(0, schedule.num_timesteps, (bs,), device=device).long()
+            # --- TODO START ---
+            bs = x.size(0)
+            # 1) Sample random diffusion steps
+            t = torch.randint(0, schedule.num_timesteps, (bs,), device=device).long()
         
-        # 2) Sample target noise
-        noise = torch.randn_like(x)
+            # 2) Sample target noise
+            noise = torch.randn_like(x)
         
-        # 3) Get noisy image x_t
-        x_t = schedule.q_sample(x_0=x, t=t, noise=noise)
+            # 3) Get noisy image x_t
+            x_t = schedule.q_sample(x_0=x, t=t, noise=noise)
         
-        # 4) Predict noise
-        predicted_noise = model(x_t, t)
+            # 4) Predict noise
+            predicted_noise = model(x_t, t)
         
-        # 5) Compute MSE loss
-        loss = F.mse_loss(predicted_noise, noise)
+            # 5) Compute MSE loss
+            loss = F.mse_loss(predicted_noise, noise)
 
-        # 6) Optimization step
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
+            # 6) Optimization step
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
 
-        running += loss.item()
-        n_batches += 1
-        # --- TODO END ---
+            running += loss.item()
+            n_batches += 1
+            # --- TODO END ---
 
     avg = running / max(n_batches, 1)
     history.append(avg)

@@ -46,7 +46,7 @@ class CGenerator(nn.Module):
             nn.BatchNorm2d(ngf),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf, image_channels, 4, 2, 1, bias=False),
-            nn.Tanh(),
+            nn.Sigmoid(),
         )
 
     def forward(self, z, labels):
@@ -156,8 +156,7 @@ def run_inference(generator, latent_dim, n_samples=10, specific_class=None):
         labels = torch.randint(0, NUM_CLASSES, (n_samples,), device=device)
     
     samples = generator(z, labels)
-    # Denormalize [-1, 1] to [0, 1] for plotting
-    samples = (samples + 1.0) / 2.0
+    # Already in [0, 1] from Sigmoid
     return samples
 
 @torch.no_grad()
@@ -171,4 +170,4 @@ def latent_walk(generator, latent_dim, label=0, steps=10):
     labels = torch.full((steps,), label, dtype=torch.long, device=device)
     
     samples = generator(z, labels)
-    return (samples + 1.0) / 2.0
+    return samples
