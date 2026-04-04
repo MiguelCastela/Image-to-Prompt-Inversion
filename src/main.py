@@ -26,7 +26,7 @@ EVAL_CONFIG = {
 }
 
 
-def evaluate_model_protocol(model, model_type, loader, device, feature_extractor, latent_dim=128):
+def evaluate_model_protocol(model, model_type, loader, device, feature_extractor, latent_dim=128, num_classes=10):
 
 
     fid_scores = []
@@ -43,7 +43,14 @@ def evaluate_model_protocol(model, model_type, loader, device, feature_extractor
         print(f"  Evaluating seed {seed+1}/10...")
         
         # Generate 5,000 samples 
-        gen_images = generate_samples(model, model_type, count=5000, latent_dim=latent_dim, device=device)
+        gen_images = generate_samples(
+            model,
+            model_type,
+            count=5000,
+            latent_dim=latent_dim,
+            device=device,
+            num_classes=num_classes,
+        )
         gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
         
         # Compute FID [cite: 74, 179]
@@ -132,7 +139,7 @@ def get_real_samples(loader, count=5000):
             break
     return torch.cat(images)[:count]
 
-def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu', schedule=None):
+def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu', schedule=None, num_classes=10):
     """Generate samples from the model using appropriate family logic."""
     samples = []
     batch_size = 64
@@ -142,7 +149,8 @@ def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu'
         while len(torch.cat(samples) if samples else []) < count:
             if model_type == 'vae':
                 z = torch.randn(batch_size, latent_dim).to(device)
-                batch = model.decode(z)
+                labels = torch.randint(0, num_classes, (batch_size,), device=device)
+                batch = model.decode(z, labels)
             elif model_type == 'gan':
                 z = torch.randn(batch_size, latent_dim).to(device)
                 labels = torch.randint(0, 10, (batch_size,)).to(device)
@@ -156,6 +164,19 @@ def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu'
             
     return torch.cat(samples)[:count]
 
+
+def generate_vae_samples_per_style(model, device, samples_per_style=10, num_styles=10):
+    """Generate conditional VAE samples for each style id in [0, num_styles)."""
+    model.eval()
+    generated_blocks = []
+    with torch.no_grad():
+        for style_id in range(num_styles):
+            z = torch.randn(samples_per_style, model.latent_dim, device=device)
+            labels = torch.full((samples_per_style,), style_id, dtype=torch.long, device=device)
+            generated_blocks.append(model.decode(z, labels))
+
+    return torch.cat(generated_blocks, dim=0)
+
     
 
 
@@ -167,6 +188,8 @@ def pipeline():
 
     data_state = setup_artbench_from_csv_subset(project_root=Path(__file__).resolve().parent.parent)
     train_loader = data_state['train_loader']
+    class_names = data_state['class_names']
+    num_classes = len(class_names)
 
     # 2. Hyperparameters (Project requirement: report these [cite: 26])
     LATENT_DIM = 128
@@ -176,7 +199,7 @@ def pipeline():
     
     # 3. Initialize Model 
     # Note: Ensure you updated autoencoder.py to handle 3 channels and 32x32 size
-    model = ConvVAE(latent_dim=LATENT_DIM).to(device)
+    model = ConvVAE(latent_dim=LATENT_DIM, num_classes=num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
     # 4. Training on the 20% Subset
@@ -232,11 +255,14 @@ def pipeline():
         print(f"Saved cDCGAN results to {save_path}")
 
     with torch.no_grad():
-        # Sample from standard normal distribution N(0, I) [cite: 150]
-        z = torch.randn(64, LATENT_DIM).to(device)
-        samples = model.decode(z)
+        vae_style_samples = generate_vae_samples_per_style(
+            model=model,
+            device=device,
+            samples_per_style=10,
+            num_styles=num_classes,
+        )
 
-        save_image(samples, save_path / 'vae_generated_samples.png', nrow=8)
+        save_image(vae_style_samples, save_path / 'vae_generated_samples.png', nrow=10)
         print(f"Saved qualitative samples to {save_path}")
 
     # --- PART 2: DIFFUSION (New) ---
@@ -283,7 +309,7 @@ def pipeline():
     # Run the sanity check just once
     base_evaluation(None, 'baseline', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
 
-    evaluate_model_protocol(model, 'vae', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    evaluate_model_protocol(model, 'vae', train_loader, device, feature_extractor, latent_dim=LATENT_DIM, num_classes=num_classes)
     evaluate_model_protocol(gen, 'gan', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
     evaluate_model_protocol(diff_model, 'diffusion', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
 
