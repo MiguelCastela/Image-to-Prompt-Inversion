@@ -3,6 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import torch.optim as optim
+from pathlib import Path
+
+# data loading utilities
+from data_loader import (
+    load_artbench_train_split,
+    build_transform,
+    HFDatasetTorch,
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_NUM_WORKERS,
+)
+from evaluation import build_feature_extractor, base_evaluation, evaluate_model_protocol
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -134,3 +146,56 @@ def evaluate_vae(model, loader, beta=0.7):
             n += b
     numel = x[0].numel()
     return {'loss': tl / n, 'recon_bce': tr / n, 'kl': tk / n, 'mse': tm / (n * numel), 'mae': ta / (n * numel)}
+
+
+def main():
+    # 1. Device
+    dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {dev}")
+
+    # 2. Load full ArtBench training split
+    root = Path(__file__).resolve().parent.parent
+    train_hf, class_names = load_artbench_train_split(root)
+    transform = build_transform(image_size=32)
+    train_ds = HFDatasetTorch(train_hf, transform=transform)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=DEFAULT_BATCH_SIZE,
+        shuffle=True,
+        num_workers=DEFAULT_NUM_WORKERS,
+        pin_memory=torch.cuda.is_available(),
+    )
+
+    num_classes = len(class_names)
+
+    # 3. Hyperparameters (match main.py)
+    LATENT_DIM = 128
+    EPOCHS = 50
+    LR = 1e-3
+    BETA = 0.5
+
+    # 4. Initialize model and optimizer
+    model = ConvVAE(latent_dim=LATENT_DIM, num_classes=num_classes).to(dev)
+    optimizer = optim.Adam(model.parameters(), lr=LR)
+
+    # 5. Train
+    print("Starting VAE training on full ArtBench training split...")
+    history = train_vae(model, train_loader, optimizer, epochs=EPOCHS, beta=BETA)
+
+    print("Training complete.")
+    # --- Quantitative evaluation (FID & KID) using evaluation.py helpers ---
+    print("Starting quantitative evaluation (FID & KID)...")
+    feat_extractor = build_feature_extractor(dev)
+
+    # Baseline sanity checks
+    base_evaluation(None, 'baseline', train_loader, dev, feature_extractor=feat_extractor, latent_dim=LATENT_DIM)
+
+    # Protocol evaluation for VAE
+    model.eval()
+    evaluate_model_protocol(model, 'vae', train_loader, dev, feat_extractor, latent_dim=LATENT_DIM, num_classes=num_classes)
+
+    return model, history
+
+
+if __name__ == "__main__":
+    main()

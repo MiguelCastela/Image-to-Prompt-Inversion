@@ -7,6 +7,17 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm.auto import tqdm
 from torchvision.utils import make_grid
+from torchvision.utils import save_image
+
+# data loading and evaluation helpers
+from data_loader import (
+    load_artbench_train_split,
+    build_transform,
+    HFDatasetTorch,
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_NUM_WORKERS,
+)
+from evaluation import build_feature_extractor, base_evaluation, evaluate_model_protocol
 
 # Setup constants for ArtBench-10
 NUM_CLASSES = 10
@@ -213,3 +224,61 @@ def latent_walk(generator, latent_dim, label=0, steps=10):
     
     samples = generator(z, labels)
     return samples
+
+
+def main():
+    # Device already set via get_device()/device
+    print(f"Using device: {device}")
+
+    # Load full ArtBench training split
+    root = Path(__file__).resolve().parent.parent
+    train_hf, class_names = load_artbench_train_split(root)
+    transform = build_transform(image_size=32)
+    train_ds = HFDatasetTorch(train_hf, transform=transform)
+    train_loader = torch.utils.data.DataLoader(
+        train_ds,
+        batch_size=DEFAULT_BATCH_SIZE,
+        shuffle=True,
+        num_workers=DEFAULT_NUM_WORKERS,
+        pin_memory=torch.cuda.is_available(),
+    )
+
+    num_classes = len(class_names)
+
+    # Hyperparameters (match src/main.py)
+    LATENT = 128
+    EPOCHS = 50
+
+    # Initialize models
+    gen = CGenerator(latent_dim=LATENT, num_classes=num_classes).to(device)
+    critic = CCritic().to(device)
+    gen.apply(init_weights)
+    critic.apply(init_weights)
+
+    # Train cWGAN-GP
+    print("Starting cWGAN-GP training (DCGAN file)...")
+    gan_history = train_cwgan_gp(gen, critic, train_loader, LATENT, epochs=EPOCHS)
+
+    # Save a quick grid of generated samples
+    save_path = Path('results')
+    save_path.mkdir(exist_ok=True)
+    with torch.no_grad():
+        gen.eval()
+        class_grid = torch.arange(min(num_classes, 10), device=device).repeat_interleave(10)
+        noise = torch.randn(class_grid.size(0), LATENT, device=device)
+        gan_samples = gen(noise, class_grid)
+        save_image(gan_samples, save_path / 'dcgan_generated_samples.png', nrow=10)
+        print(f"Saved DCGAN samples to {save_path}")
+
+    # --- Evaluation: FID & KID ---
+    feat_extractor = build_feature_extractor(device)
+
+    base_evaluation(None, 'baseline', train_loader, device, feature_extractor=feat_extractor, latent_dim=LATENT)
+
+    evaluate_model_protocol(gen, 'gan', train_loader, device, feat_extractor, latent_dim=LATENT)
+
+    return gen, critic, gan_history
+
+
+if __name__ == '__main__':
+    main()

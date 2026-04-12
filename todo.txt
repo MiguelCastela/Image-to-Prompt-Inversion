@@ -1,0 +1,8 @@
+Fazer abadesso search para cdcgan e diff
+
+20% do dataset com 3 modelos q temos agora-> reportar resultados e FID+KID 
+hyperparametros do diffusion + GAN com 20% do dataset
+correr os 3 modelos no dataset todo e gerar 50 000 imagens (GAN e diffusion com os melhores hyperparametros encontrados) e reportar FID  e KID para esses resultados finais
+
+extra 1) FIne tune de um modelo
+extra 2) lerp e slerp para visualização de latent space🍑

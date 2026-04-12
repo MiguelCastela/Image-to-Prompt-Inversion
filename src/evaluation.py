@@ -121,3 +121,145 @@ def frechet_distance(mu_r, sigma_r, mu_g, sigma_g, eps=1e-6):
     return float(fid)
 
 
+# --- Higher-level evaluation utilities moved from main.py ---
+from torchvision.models import inception_v3, Inception_V3_Weights
+
+
+EVAL_CONFIG = {
+    'reference_count': 5000,
+    'generated_count': 5000,
+    'kid_subsets': 50,
+    'kid_subset_size': 100,
+    'batch_size': 32,
+}
+
+
+def get_real_samples(loader, count=5000):
+    images = []
+    for batch in loader:
+        if isinstance(batch, (list, tuple)):
+            imgs = batch[0]
+        else:
+            imgs = batch
+        images.append(imgs)
+        if len(torch.cat(images)) >= count:
+            break
+    return torch.cat(images)[:count]
+
+
+def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu', schedule=None, num_classes=10):
+    samples = []
+    batch_size = 64
+    model.eval()
+
+    with torch.no_grad():
+        while len(torch.cat(samples) if samples else []) < count:
+            if model_type == 'vae':
+                z = torch.randn(batch_size, latent_dim).to(device)
+                labels = torch.randint(0, num_classes, (batch_size,), device=device)
+                batch = model.decode(z, labels)
+            elif model_type == 'gan':
+                z = torch.randn(batch_size, latent_dim).to(device)
+                labels = torch.randint(0, 10, (batch_size,)).to(device)
+                batch = model(z, labels)
+            elif model_type == 'diffusion':
+                batch = schedule.p_sample_loop(model, shape=(batch_size, 3, 32, 32))
+                batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
+
+            samples.append(batch.cpu())
+
+    return torch.cat(samples)[:count]
+
+
+def generate_vae_samples_per_style(model, device, samples_per_style=10, num_styles=10):
+    model.eval()
+    generated_blocks = []
+    with torch.no_grad():
+        for style_id in range(num_styles):
+            z = torch.randn(samples_per_style, model.latent_dim, device=device)
+            labels = torch.full((samples_per_style,), style_id, dtype=torch.long, device=device)
+            generated_blocks.append(model.decode(z, labels))
+
+    return torch.cat(generated_blocks, dim=0)
+
+
+def build_feature_extractor(device):
+    model = inception_v3(weights=Inception_V3_Weights.DEFAULT, transform_input=False)
+    model.fc = torch.nn.Identity()
+    model.eval()
+    return model.to(device)
+
+
+def evaluate_model_protocol(model, model_type, loader, device, feature_extractor, latent_dim=128, num_classes=10):
+    fid_scores = []
+    kid_means = []
+
+    # 1. Prepare Real Reference (Done once to save time)
+    real_images = get_real_samples(loader, count=EVAL_CONFIG['reference_count'])
+    real_features = extract_inception_features(real_images, feature_extractor, device=device)
+    mu_real, sigma_real = feature_statistics(real_features)
+
+    # 2. Statistical Repetition Loop (Mandatory: 10 times)
+    for seed in range(10):
+        torch.manual_seed(seed)
+        print(f"  Evaluating seed {seed+1}/10...")
+
+        # Generate samples
+        gen_images = generate_samples(
+            model,
+            model_type,
+            count=EVAL_CONFIG['generated_count'],
+            latent_dim=latent_dim,
+            device=device,
+            num_classes=num_classes,
+        )
+        gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
+
+        # Compute FID
+        mu_gen, sigma_gen = feature_statistics(gen_features)
+        fid = frechet_distance(mu_real, sigma_real, mu_gen, sigma_gen)
+        fid_scores.append(fid)
+
+        # Compute KID
+        k_mean, _ = kid_score(real_features, gen_features, subset_size=EVAL_CONFIG['kid_subset_size'], num_subsets=EVAL_CONFIG['kid_subsets'])
+        kid_means.append(k_mean)
+
+    print(f"\nResults for {model_type.upper()} over 10 seeds:")
+    print(f"  FID: {np.mean(fid_scores):.4f} ± {np.std(fid_scores):.4f}")
+    print(f"  KID: {np.mean(kid_means):.4f} ± {np.std(kid_means):.4f}\n")
+
+
+def base_evaluation(model, model_type, loader, device, feature_extractor=None, latent_dim=128):
+    print("\n--- Starting Quantitative Evaluation Phase ---")
+
+    if feature_extractor is None:
+        feature_extractor = build_feature_extractor(device)
+    batch_size = EVAL_CONFIG['batch_size']
+
+    print("Running Baseline Sanity Checks...")
+    real_eval_images = get_real_samples(loader, count=EVAL_CONFIG['reference_count'])
+    noise_images = torch.rand(EVAL_CONFIG['reference_count'], 3, 32, 32)
+
+    print("Extracting features (Real, Generated, Noise)...")
+    feats_real = extract_inception_features(real_eval_images, feature_extractor, batch_size=batch_size)
+    feats_noise = extract_inception_features(noise_images, feature_extractor, batch_size=batch_size)
+
+    mid = len(feats_real) // 2
+    real_a, real_b = feats_real[:mid], feats_real[mid:]
+    noise_a = feats_noise[:mid]
+
+    mu_ra, sigma_ra = feature_statistics(real_a)
+    mu_rb, sigma_rb = feature_statistics(real_b)
+    mu_na, sigma_na = feature_statistics(noise_a)
+
+    fid_sanity = frechet_distance(mu_ra, sigma_ra, mu_rb, sigma_rb)
+    fid_noise = frechet_distance(mu_ra, sigma_ra, mu_na, sigma_na)
+
+    kid_sanity = kid_score(real_a, real_b, subset_size=EVAL_CONFIG['kid_subset_size'], num_subsets=EVAL_CONFIG['kid_subsets'])
+    kid_noise = kid_score(real_a, noise_a, subset_size=EVAL_CONFIG['kid_subset_size'], num_subsets=EVAL_CONFIG['kid_subsets'])
+
+    print(f"\n--- Evaluation Results (Protocol: {EVAL_CONFIG['reference_count']} images) ---")
+    print(f"Sanity (Real vs Real): FID: {fid_sanity:.4f} | KID: {kid_sanity[0]:.4f} ± {kid_sanity[1]:.4f}")
+    print(f"Baseline (Real vs Noise): FID: {fid_noise:.4f} | KID: {kid_noise[0]:.4f} ± {kid_noise[1]:.4f}")
+
+

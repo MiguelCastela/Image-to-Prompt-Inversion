@@ -13,6 +13,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
+from pathlib import Path
+from torchvision.utils import save_image
+
+# data loading and evaluation helpers
+from data_loader import (
+    load_artbench_train_split,
+    build_transform,
+    HFDatasetTorch,
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_NUM_WORKERS,
+)
+from evaluation import build_feature_extractor, base_evaluation, evaluate_model_protocol
 
 
 
@@ -487,3 +499,62 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None)
     print(f'Diff epoch {epoch + 1:02d}/{epochs} | loss: {avg:.4f}')
 
     return history
+
+
+def main():
+    # Device
+    dev = device
+    print(f"Using device: {dev}")
+
+    # Load full ArtBench training split
+    root = Path(__file__).resolve().parent.parent
+    train_hf, class_names = load_artbench_train_split(root)
+    transform = build_transform(image_size=32)
+    train_ds = HFDatasetTorch(train_hf, transform=transform)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=DEFAULT_BATCH_SIZE,
+        shuffle=True,
+        num_workers=DEFAULT_NUM_WORKERS,
+        pin_memory=torch.cuda.is_available(),
+    )
+
+    num_classes = len(class_names)
+
+    # Hyperparameters (match src/main.py)
+    DIFF_TIMESTEPS = 1000
+    DIFF_EPOCHS = 50
+    DIFF_LR = 2e-4
+
+    # Initialize schedule and model
+    schedule = GaussianDiffusion(num_timesteps=DIFF_TIMESTEPS, device=dev)
+    diff_model = PixelUNet(in_channels=3, model_channels=64).to(dev)
+
+    # Train diffusion
+    print("Training Pixel-space Diffusion on full ArtBench training split...")
+    diff_history = train_diffusion(model=diff_model, loader=train_loader, schedule=schedule, epochs=DIFF_EPOCHS, lr=DIFF_LR)
+
+    # Generate samples
+    print("Generating diffusion samples...")
+    diff_model.eval()
+    with torch.no_grad():
+        total_samples = 10 * 10
+        samples = schedule.p_sample_loop(diff_model, shape=(total_samples, 3, 32, 32))
+        samples = torch.clamp((samples + 1.0) / 2.0, 0.0, 1.0)
+
+        save_path = Path('results')
+        save_path.mkdir(exist_ok=True)
+        save_image(samples, save_path / 'diffusion_generated_samples.png', nrow=10)
+        print(f"Saved diffusion samples to {save_path}")
+
+    # --- Evaluation: FID & KID ---
+    feat_extractor = build_feature_extractor(dev)
+
+    base_evaluation(None, 'baseline', train_loader, dev, feature_extractor=feat_extractor)
+    evaluate_model_protocol(diff_model, 'diffusion', train_loader, dev, feat_extractor)
+
+    return diff_model, diff_history
+
+
+if __name__ == '__main__':
+    main()
