@@ -27,7 +27,9 @@ class ConvVAE(nn.Module):
             nn.ReLU(),
         )
 
-        enc_in_dim = 128 * 8 * 8 + class_embed_dim
+        # If we spatially concatenate the class embedding as extra channels,
+        # the flattened encoder input dimension becomes (128 + class_embed_dim) * 8 * 8
+        enc_in_dim = (128 + class_embed_dim) * 8 * 8
         self.fc_mu = nn.Linear(enc_in_dim, latent_dim)
         self.fc_logvar = nn.Linear(enc_in_dim, latent_dim)
 
@@ -44,13 +46,11 @@ class ConvVAE(nn.Module):
 
     def encode(self, x, y):
         h = self.enc_conv(x)
-        y_embed = self.class_embed(y).view(h.size(0), self.class_embed_dim, 1, 1)
-        y_embed = y_embed.expand(-1, -1, h.size(2), h.size(3))
-        h = torch.cat([h, y_embed], dim=1) 
+        # Spatially expand the class embedding and concatenate as extra channels
+        y_embed_spatial = self.class_embed(y).view(h.size(0), self.class_embed_dim, 1, 1)
+        y_embed_spatial = y_embed_spatial.expand(-1, -1, h.size(2), h.size(3))
+        h = torch.cat([h, y_embed_spatial], dim=1)
         h = h.view(h.size(0), -1)
-        h = h.view(h.size(0), -1)
-        y_embed = self.class_embed(y)
-        h = torch.cat([h, y_embed], dim=1)
         return self.fc_mu(h), self.fc_logvar(h)
 
     def reparameterize(self, mu, logvar):

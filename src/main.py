@@ -10,7 +10,14 @@ from cDCGAN import CGenerator, CCritic, train_cwgan_gp, init_weights
 
 # Import from your provided files
 from autoencoder import ConvVAE, train_vae
-from data_loader import setup_artbench_from_csv_subset
+from data_loader import (
+    setup_artbench_from_csv_subset,
+    load_artbench_train_split,
+    build_transform,
+    HFDatasetTorch,
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_NUM_WORKERS,
+)
 from diffusion import GaussianDiffusion, PixelUNet, train_diffusion
 
 import numpy as np
@@ -158,14 +165,32 @@ def pipeline():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    data_state = setup_artbench_from_csv_subset(project_root=Path(__file__).resolve().parent.parent)
-    train_loader = data_state['train_loader']
-    class_names = data_state['class_names']
+    # Option: use whole training split or the 20% CSV subset
+    # Set to True to run on the whole training split once. Set to False to use the CSV 20% subset.
+    USE_FULL_DATASET = True
+
+    root = Path(__file__).resolve().parent.parent
+    if USE_FULL_DATASET:
+        train_hf, class_names = load_artbench_train_split(root)
+        transform = build_transform(image_size=32)
+        train_ds = HFDatasetTorch(train_hf, transform=transform)
+        train_loader = torch.utils.data.DataLoader(
+            train_ds,
+            batch_size=DEFAULT_BATCH_SIZE,
+            shuffle=True,
+            num_workers=DEFAULT_NUM_WORKERS,
+            pin_memory=torch.cuda.is_available(),
+        )
+    else:
+        data_state = setup_artbench_from_csv_subset(project_root=root)
+        train_loader = data_state['train_loader']
+        class_names = data_state['class_names']
+
     num_classes = len(class_names)
 
     # 2. Hyperparameters
     LATENT_DIM = 128
-    EPOCHS = 20
+    EPOCHS = 50
     LR = 1e-3
     BETA = 0.5
     
@@ -236,7 +261,7 @@ def pipeline():
     print("\n--- Starting Diffusion Phase ---")
     
     DIFF_TIMESTEPS = 1000
-    DIFF_EPOCHS = 20 
+    DIFF_EPOCHS = 50
     DIFF_LR = 2e-4
     
     schedule = GaussianDiffusion(num_timesteps=DIFF_TIMESTEPS, device=device)
