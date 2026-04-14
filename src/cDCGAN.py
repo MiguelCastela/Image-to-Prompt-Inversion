@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import torch
 import torch.nn as nn
@@ -11,6 +12,11 @@ from tqdm.auto import tqdm
 from torchvision.utils import make_grid
 from torchvision.utils import save_image
 
+try:
+    import optuna
+except ImportError:
+    optuna = None
+
 # data loading and evaluation helpers
 from data_loader import (
     load_artbench_train_split,
@@ -21,7 +27,17 @@ from data_loader import (
     DEFAULT_NUM_WORKERS,
     setup_artbench_from_csv_subset,
 )
-from evaluation import build_feature_extractor, base_evaluation, evaluate_model_protocol
+from evaluation import (
+    build_feature_extractor,
+    base_evaluation,
+    evaluate_model_protocol,
+    extract_inception_features,
+    feature_statistics,
+    frechet_distance,
+    kid_score,
+    get_real_samples,
+    generate_samples,
+)
 
 # Setup constants for ArtBench-10
 NUM_CLASSES = 10
@@ -227,9 +243,138 @@ def latent_walk(generator, latent_dim, label=0, steps=10):
     return samples
 
 
+@torch.no_grad()
+def evaluate_gan_metrics(
+    generator,
+    test_loader,
+    feature_extractor,
+    latent_dim,
+    num_classes,
+    eval_count=2000,
+    num_seeds=3,
+):
+    """Evaluate GAN quality and return mean/std FID and KID for optimization."""
+    fid_scores = []
+    kid_scores = []
+
+    real_images = get_real_samples(test_loader, count=eval_count)
+    real_features = extract_inception_features(real_images, feature_extractor, device=device)
+    mu_real, sigma_real = feature_statistics(real_features)
+
+    for seed in range(num_seeds):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+
+        gen_images = generate_samples(
+            generator,
+            model_type='gan',
+            count=eval_count,
+            latent_dim=latent_dim,
+            device=device,
+            num_classes=num_classes,
+        )
+        gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
+        mu_gen, sigma_gen = feature_statistics(gen_features)
+
+        fid = frechet_distance(mu_real, sigma_real, mu_gen, sigma_gen)
+        kid_mean, _ = kid_score(
+            real_features,
+            gen_features,
+            subset_size=min(100, eval_count // 2),
+            num_subsets=20,
+            seed=seed + 123,
+        )
+
+        fid_scores.append(fid)
+        kid_scores.append(kid_mean)
+
+    return {
+        'fid_mean': float(np.mean(fid_scores)),
+        'fid_std': float(np.std(fid_scores)),
+        'kid_mean': float(np.mean(kid_scores)),
+        'kid_std': float(np.std(kid_scores)),
+    }
+
+
+def run_cwgan_pipeline(
+    train_loader,
+    test_loader,
+    num_classes,
+    latent_dim,
+    learning_rate,
+    base_channels,
+    base_updates_per_g,
+    epochs,
+    feature_extractor,
+    save_path,
+    run_name,
+    eval_count=2000,
+    eval_seeds=3,
+    save_samples=True,
+):
+    gen = CGenerator(latent_dim=latent_dim, num_classes=num_classes, ngf=base_channels).to(device)
+    critic = CCritic(image_channels=IMG_CHANNELS, num_classes=num_classes, ndf=base_channels).to(device)
+    gen.apply(init_weights)
+    critic.apply(init_weights)
+
+    print(
+        f"[{run_name}] Starting cWGAN-GP training "
+        f"(lr={learning_rate:.2e}, latent_dim={latent_dim}, base_channels={base_channels}, "
+        f"base_updates_per_g={base_updates_per_g})"
+    )
+    history = train_cwgan_gp(
+        gen,
+        critic,
+        train_loader,
+        latent_dim,
+        epochs=epochs,
+        lr=learning_rate,
+        n_critic=base_updates_per_g,
+    )
+
+    if save_samples:
+        with torch.no_grad():
+            gen.eval()
+            class_grid = torch.arange(min(num_classes, 10), device=device).repeat_interleave(10)
+            noise = torch.randn(class_grid.size(0), latent_dim, device=device)
+            gan_samples = gen(noise, class_grid)
+            gan_samples = torch.clamp((gan_samples + 1.0) / 2.0, 0.0, 1.0)
+            save_image(gan_samples, save_path / f'{run_name}_generated_samples.png', nrow=10)
+
+    metrics = evaluate_gan_metrics(
+        gen,
+        test_loader,
+        feature_extractor,
+        latent_dim=latent_dim,
+        num_classes=num_classes,
+        eval_count=eval_count,
+        num_seeds=eval_seeds,
+    )
+    print(
+        f"[{run_name}] FID: {metrics['fid_mean']:.4f} +/- {metrics['fid_std']:.4f} | "
+        f"KID: {metrics['kid_mean']:.4f} +/- {metrics['kid_std']:.4f}"
+    )
+
+    return {
+        'generator': gen,
+        'critic': critic,
+        'history': history,
+        **metrics,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-20pct', action='store_true', help='Use training_20_percent.csv subset')
+    parser.add_argument('--epochs', type=int, default=50, help='Training epochs per run/trial')
+    parser.add_argument('--latent-dim', type=int, default=128, help='Latent dimensionality for non-search mode')
+    parser.add_argument('--learning-rate', type=float, default=1e-4, help='Learning rate for non-search mode')
+    parser.add_argument('--base-channels', type=int, default=64, choices=[32, 64, 128], help='Base channels (ngf/ndf) for non-search mode')
+    parser.add_argument('--base-updates-per-g', type=int, default=5, choices=[3, 5, 7], help='Critic updates per generator update in non-search mode')
+    parser.add_argument('--bayes-search', action='store_true', help='Run Bayesian hyperparameter search with Optuna (TPE sampler)')
+    parser.add_argument('--n-trials', type=int, default=10, help='Number of Bayesian search trials')
+    parser.add_argument('--eval-count', type=int, default=2000, help='Images used to compute FID/KID per trial')
+    parser.add_argument('--eval-seeds', type=int, default=3, help='Number of random seeds per trial for metric averaging')
     args = parser.parse_args()
     env_flag = os.environ.get('USE_20_PERCENT', '')
     use_subset = args.use_20pct or (env_flag.lower() in ('1', 'true', 'yes'))
@@ -279,40 +424,139 @@ def main():
 
     num_classes = len(class_names)
 
-    # Hyperparameters (match src/main.py)
-    LATENT = 128
-    EPOCHS = 50
-
-    # Initialize models
-    gen = CGenerator(latent_dim=LATENT, num_classes=num_classes).to(device)
-    critic = CCritic().to(device)
-    gen.apply(init_weights)
-    critic.apply(init_weights)
-
-    # Train cWGAN-GP
-    print("Starting cWGAN-GP training (DCGAN file)...")
-    gan_history = train_cwgan_gp(gen, critic, train_loader, LATENT, epochs=EPOCHS)
-
-    # Save 100 conditional samples: 10 per class for 10 classes.
+    # Output directory for samples and search summaries.
     save_path = Path(__file__).resolve().parent / 'results'
     save_path.mkdir(exist_ok=True)
-    with torch.no_grad():
-        gen.eval()
-        class_grid = torch.arange(min(num_classes, 10), device=device).repeat_interleave(10)
-        noise = torch.randn(class_grid.size(0), LATENT, device=device)
-        gan_samples = gen(noise, class_grid)
-        gan_samples = torch.clamp((gan_samples + 1.0) / 2.0, 0.0, 1.0)
-        save_image(gan_samples, save_path / 'dcgan_generated_samples.png', nrow=10)
-        print(f"Saved DCGAN samples to {save_path}")
 
-    # --- Evaluation: FID & KID ---
     feat_extractor = build_feature_extractor(device)
+    base_evaluation(
+        None,
+        'baseline',
+        test_loader,
+        device,
+        feature_extractor=feat_extractor,
+        latent_dim=args.latent_dim,
+    )
 
-    base_evaluation(None, 'baseline', test_loader, device, feature_extractor=feat_extractor, latent_dim=LATENT)
+    if args.bayes_search:
+        if optuna is None:
+            raise ImportError('Optuna is required for --bayes-search. Install with: pip install optuna')
 
-    evaluate_model_protocol(gen, 'gan', test_loader, device, feat_extractor, latent_dim=LATENT)
+        print('Starting Bayesian hyperparameter search for cWGAN-GP...')
+        trial_dir = save_path / 'bayes_trials'
+        trial_dir.mkdir(exist_ok=True)
 
-    return gen, critic, gan_history
+        sampler = optuna.samplers.TPESampler(seed=42)
+        study = optuna.create_study(direction='minimize', sampler=sampler, study_name='cdcgan_bayes_search')
+
+        def objective(trial):
+            latent_dim = trial.suggest_int('latent_dims', 64, 128, step=32)
+            learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)
+            base_channels = trial.suggest_categorical('base_channels', [32, 64, 128])
+            base_updates_per_g = trial.suggest_categorical('base_updates_per_g', [3, 5, 7])
+
+            trial_name = f'trial_{trial.number:03d}'
+            trial_result = run_cwgan_pipeline(
+                train_loader=train_loader,
+                test_loader=test_loader,
+                num_classes=num_classes,
+                latent_dim=latent_dim,
+                learning_rate=learning_rate,
+                base_channels=base_channels,
+                base_updates_per_g=base_updates_per_g,
+                epochs=args.epochs,
+                feature_extractor=feat_extractor,
+                save_path=trial_dir,
+                run_name=trial_name,
+                eval_count=args.eval_count,
+                eval_seeds=args.eval_seeds,
+                save_samples=True,
+            )
+
+            trial.set_user_attr('kid_mean', trial_result['kid_mean'])
+            trial.set_user_attr('kid_std', trial_result['kid_std'])
+            return trial_result['fid_mean']
+
+        study.optimize(objective, n_trials=args.n_trials)
+
+        best = study.best_trial
+        best_params = best.params
+        print(f"Best trial #{best.number} -> FID: {best.value:.4f}")
+        print(f"Best params: {best_params}")
+
+        best_params_path = save_path / 'cdcgan_bayes_best_params.json'
+        with best_params_path.open('w', encoding='utf-8') as f:
+            json.dump(
+                {
+                    'best_trial': best.number,
+                    'best_fid': float(best.value),
+                    'params': best_params,
+                    'kid_mean': best.user_attrs.get('kid_mean'),
+                    'kid_std': best.user_attrs.get('kid_std'),
+                },
+                f,
+                indent=2,
+            )
+        print(f'Saved best search result to {best_params_path}')
+
+        # Retrain with the best hyperparameters and run the full evaluation protocol.
+        best_result = run_cwgan_pipeline(
+            train_loader=train_loader,
+            test_loader=test_loader,
+            num_classes=num_classes,
+            latent_dim=int(best_params['latent_dims']),
+            learning_rate=float(best_params['learning_rate']),
+            base_channels=int(best_params['base_channels']),
+            base_updates_per_g=int(best_params['base_updates_per_g']),
+            epochs=args.epochs,
+            feature_extractor=feat_extractor,
+            save_path=save_path,
+            run_name='dcgan_best_bayes',
+            eval_count=args.eval_count,
+            eval_seeds=args.eval_seeds,
+            save_samples=True,
+        )
+
+        evaluate_model_protocol(
+            best_result['generator'],
+            'gan',
+            test_loader,
+            device,
+            feat_extractor,
+            latent_dim=int(best_params['latent_dims']),
+            num_classes=num_classes,
+        )
+
+        return best_result['generator'], best_result['critic'], best_result['history']
+
+    default_result = run_cwgan_pipeline(
+        train_loader=train_loader,
+        test_loader=test_loader,
+        num_classes=num_classes,
+        latent_dim=args.latent_dim,
+        learning_rate=args.learning_rate,
+        base_channels=args.base_channels,
+        base_updates_per_g=args.base_updates_per_g,
+        epochs=args.epochs,
+        feature_extractor=feat_extractor,
+        save_path=save_path,
+        run_name='dcgan_generated_samples',
+        eval_count=args.eval_count,
+        eval_seeds=args.eval_seeds,
+        save_samples=True,
+    )
+
+    evaluate_model_protocol(
+        default_result['generator'],
+        'gan',
+        test_loader,
+        device,
+        feat_extractor,
+        latent_dim=args.latent_dim,
+        num_classes=num_classes,
+    )
+
+    return default_result['generator'], default_result['critic'], default_result['history']
 
 
 if __name__ == '__main__':

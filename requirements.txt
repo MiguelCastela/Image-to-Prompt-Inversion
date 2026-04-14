@@ -94,6 +94,7 @@ traitlets==5.14.3
 triton==3.6.0
 typer==0.24.1
 typing_extensions==4.15.0
+optuna>=4.0.0
 urllib3==2.6.3
 wcwidth==0.6.0
 xxhash==3.6.0
