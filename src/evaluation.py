@@ -10,6 +10,11 @@ def prepare_images_for_inception(images, device):
     """
     # 1. Ensure images are on the correct device and float type
     images = images.to(device=device, dtype=torch.float32)
+
+    # 1b. Convert loader/model outputs in [-1, 1] to [0, 1] when needed.
+    if images.min() < 0.0:
+        images = (images + 1.0) / 2.0
+    images = images.clamp(0.0, 1.0)
     
     # 2. Rescale/Interpolate to 299x299 (Inception requirement)
     images = F.interpolate(images, size=(299, 299), mode='bilinear', align_corners=False)
@@ -128,6 +133,7 @@ from torchvision.models import inception_v3, Inception_V3_Weights
 EVAL_CONFIG = {
     'reference_count': 5000,
     'generated_count': 5000,
+    'num_seeds': 10,
     'kid_subsets': 50,
     'kid_subset_size': 100,
     'batch_size': 32,
@@ -161,8 +167,16 @@ def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu'
             elif model_type == 'gan':
                 z = torch.randn(batch_size, latent_dim).to(device)
                 labels = torch.randint(0, 10, (batch_size,)).to(device)
-                batch = model(z, labels)
+                try:
+                    batch = model(z, labels)  # conditional GAN
+                except TypeError:
+                    batch = model(z)          # non-conditional GAN
+                # GAN outputs are often tanh-scaled in [-1, 1]; map to [0, 1] for Inception.
+                if batch.min() < 0.0:
+                    batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
             elif model_type == 'diffusion':
+                if schedule is None:
+                    raise ValueError('Diffusion evaluation requires a valid schedule.')
                 batch = schedule.p_sample_loop(model, shape=(batch_size, 3, 32, 32))
                 batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
 
@@ -190,7 +204,7 @@ def build_feature_extractor(device):
     return model.to(device)
 
 
-def evaluate_model_protocol(model, model_type, loader, device, feature_extractor, latent_dim=128, num_classes=10):
+def evaluate_model_protocol(model, model_type, loader, device, feature_extractor, latent_dim=128, num_classes=10, schedule=None):
     fid_scores = []
     kid_means = []
 
@@ -199,10 +213,10 @@ def evaluate_model_protocol(model, model_type, loader, device, feature_extractor
     real_features = extract_inception_features(real_images, feature_extractor, device=device)
     mu_real, sigma_real = feature_statistics(real_features)
 
-    # 2. Statistical Repetition Loop (Mandatory: 10 times)
-    for seed in range(10):
+    # 2. Statistical repetition loop
+    for seed in range(EVAL_CONFIG['num_seeds']):
         torch.manual_seed(seed)
-        print(f"  Evaluating seed {seed+1}/10...")
+        print(f"  Evaluating seed {seed+1}/{EVAL_CONFIG['num_seeds']}...")
 
         # Generate samples
         gen_images = generate_samples(
@@ -211,6 +225,7 @@ def evaluate_model_protocol(model, model_type, loader, device, feature_extractor
             count=EVAL_CONFIG['generated_count'],
             latent_dim=latent_dim,
             device=device,
+            schedule=schedule,
             num_classes=num_classes,
         )
         gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
@@ -224,7 +239,7 @@ def evaluate_model_protocol(model, model_type, loader, device, feature_extractor
         k_mean, _ = kid_score(real_features, gen_features, subset_size=EVAL_CONFIG['kid_subset_size'], num_subsets=EVAL_CONFIG['kid_subsets'])
         kid_means.append(k_mean)
 
-    print(f"\nResults for {model_type.upper()} over 10 seeds:")
+    print(f"\nResults for {model_type.upper()} over {EVAL_CONFIG['num_seeds']} seeds:")
     print(f"  FID: {np.mean(fid_scores):.4f} ± {np.std(fid_scores):.4f}")
     print(f"  KID: {np.mean(kid_means):.4f} ± {np.std(kid_means):.4f}\n")
 

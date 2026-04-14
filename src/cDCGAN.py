@@ -1,3 +1,5 @@
+import argparse
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,10 +14,12 @@ from torchvision.utils import save_image
 # data loading and evaluation helpers
 from data_loader import (
     load_artbench_train_split,
+    load_artbench_splits,
     build_transform,
     HFDatasetTorch,
     DEFAULT_BATCH_SIZE,
     DEFAULT_NUM_WORKERS,
+    setup_artbench_from_csv_subset,
 )
 from evaluation import build_feature_extractor, base_evaluation, evaluate_model_protocol
 
@@ -56,7 +60,7 @@ class CGenerator(nn.Module):
             nn.BatchNorm2d(ngf),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf, image_channels, 4, 2, 1, bias=False),
-            nn.Sigmoid(), # Keeping Sigmoid if your real images are scaled [0, 1]
+            nn.Tanh(),
         )
 
     def forward(self, z, labels):
@@ -71,16 +75,13 @@ class CCritic(nn.Module): # Renamed to Critic
         self.label_emb = nn.Embedding(num_classes, 32 * 32)
         
         self.net = nn.Sequential(
-            nn.Conv2d(image_channels + 1, ndf, 4, 2, 1, bias=False),
+            nn.utils.spectral_norm(nn.Conv2d(image_channels + 1, ndf, 4, 2, 1, bias=False)),
             nn.LeakyReLU(0.2, inplace=True),
-            # Swapped BatchNorm2d for InstanceNorm2d to allow Gradient Penalty to work
-            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-            nn.InstanceNorm2d(ndf * 2, affine=True),
+            nn.utils.spectral_norm(nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False)),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-            nn.InstanceNorm2d(ndf * 4, affine=True),
+            nn.utils.spectral_norm(nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False)),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 4, 1, 4, 1, 0, bias=False),
+            nn.utils.spectral_norm(nn.Conv2d(ndf * 4, 1, 4, 1, 0, bias=False)),
             # Removed Sigmoid here to output raw linear scores
         )
 
@@ -227,18 +228,51 @@ def latent_walk(generator, latent_dim, label=0, steps=10):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--use-20pct', action='store_true', help='Use training_20_percent.csv subset')
+    args = parser.parse_args()
+    env_flag = os.environ.get('USE_20_PERCENT', '')
+    use_subset = args.use_20pct or (env_flag.lower() in ('1', 'true', 'yes'))
+
     # Device already set via get_device()/device
     print(f"Using device: {device}")
 
-    # Load full ArtBench training split
-    root = Path(__file__).resolve().parent.parent
-    train_hf, class_names = load_artbench_train_split(root)
-    transform = build_transform(image_size=32)
-    train_ds = HFDatasetTorch(train_hf, transform=transform)
-    train_loader = torch.utils.data.DataLoader(
-        train_ds,
+    if use_subset:
+        print('Loading 20% subset via training_20_percent.csv')
+        cfg = setup_artbench_from_csv_subset(
+            project_root=None,
+            training_csv_path=None,
+            image_size=32,
+            batch_size=DEFAULT_BATCH_SIZE,
+            num_workers=DEFAULT_NUM_WORKERS,
+            shuffle=True,
+        )
+        root = cfg['project_root']
+        train_hf = cfg['train_hf']
+        class_names = cfg['class_names']
+        train_loader = cfg['train_loader']
+    else:
+        # Load full ArtBench training split
+        root = Path(__file__).resolve().parent.parent
+        train_hf, class_names = load_artbench_train_split(root)
+        transform = build_transform(image_size=32)
+        train_ds = HFDatasetTorch(train_hf, transform=transform)
+        train_loader = torch.utils.data.DataLoader(
+            train_ds,
+            batch_size=DEFAULT_BATCH_SIZE,
+            shuffle=True,
+            num_workers=DEFAULT_NUM_WORKERS,
+            pin_memory=torch.cuda.is_available(),
+        )
+
+    # Always evaluate against the test split.
+    _, test_hf, _ = load_artbench_splits(root)
+    test_transform = build_transform(image_size=32)
+    test_ds = HFDatasetTorch(test_hf, transform=test_transform)
+    test_loader = torch.utils.data.DataLoader(
+        test_ds,
         batch_size=DEFAULT_BATCH_SIZE,
-        shuffle=True,
+        shuffle=False,
         num_workers=DEFAULT_NUM_WORKERS,
         pin_memory=torch.cuda.is_available(),
     )
@@ -259,23 +293,24 @@ def main():
     print("Starting cWGAN-GP training (DCGAN file)...")
     gan_history = train_cwgan_gp(gen, critic, train_loader, LATENT, epochs=EPOCHS)
 
-    # Save a quick grid of generated samples
-    save_path = Path('results')
+    # Save 100 conditional samples: 10 per class for 10 classes.
+    save_path = Path(__file__).resolve().parent / 'results'
     save_path.mkdir(exist_ok=True)
     with torch.no_grad():
         gen.eval()
         class_grid = torch.arange(min(num_classes, 10), device=device).repeat_interleave(10)
         noise = torch.randn(class_grid.size(0), LATENT, device=device)
         gan_samples = gen(noise, class_grid)
+        gan_samples = torch.clamp((gan_samples + 1.0) / 2.0, 0.0, 1.0)
         save_image(gan_samples, save_path / 'dcgan_generated_samples.png', nrow=10)
         print(f"Saved DCGAN samples to {save_path}")
 
     # --- Evaluation: FID & KID ---
     feat_extractor = build_feature_extractor(device)
 
-    base_evaluation(None, 'baseline', train_loader, device, feature_extractor=feat_extractor, latent_dim=LATENT)
+    base_evaluation(None, 'baseline', test_loader, device, feature_extractor=feat_extractor, latent_dim=LATENT)
 
-    evaluate_model_protocol(gen, 'gan', train_loader, device, feat_extractor, latent_dim=LATENT)
+    evaluate_model_protocol(gen, 'gan', test_loader, device, feat_extractor, latent_dim=LATENT)
 
     return gen, critic, gan_history
 

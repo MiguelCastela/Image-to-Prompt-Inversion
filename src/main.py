@@ -9,9 +9,10 @@ from torchvision.utils import save_image
 from cDCGAN import CGenerator, CCritic, train_cwgan_gp, init_weights
 
 # Import from your provided files
-from autoencoder import ConvVAE, train_vae
+from src.cVAE import ConvVAE, train_vae
 from data_loader import (
     setup_artbench_from_csv_subset,
+    load_artbench_splits,
     load_artbench_train_split,
     build_transform,
     HFDatasetTorch,
@@ -65,6 +66,18 @@ def pipeline():
         train_loader = data_state['train_loader']
         class_names = data_state['class_names']
 
+    # Build test loader for evaluation reference images.
+    _, test_hf, _ = load_artbench_splits(root)
+    test_transform = build_transform(image_size=32)
+    test_ds = HFDatasetTorch(test_hf, transform=test_transform)
+    test_loader = torch.utils.data.DataLoader(
+        test_ds,
+        batch_size=DEFAULT_BATCH_SIZE,
+        shuffle=False,
+        num_workers=DEFAULT_NUM_WORKERS,
+        pin_memory=torch.cuda.is_available(),
+    )
+
     num_classes = len(class_names)
 
     # 2. Hyperparameters
@@ -99,7 +112,7 @@ def pipeline():
     print("Starting cWGAN-GP training on 20% subset...")
     gan_history = train_cwgan_gp(gen, critic, train_loader, LATENT_DIM, epochs=EPOCHS)
 
-    save_path = Path('results')
+    save_path = Path(__file__).resolve().parent / 'results'
     save_path.mkdir(exist_ok=True)
 
     # UPDATE 4: Adjust plot to use 'c_loss' and update titles/filenames
@@ -122,7 +135,7 @@ def pipeline():
         class_grid = torch.arange(num_styles, device=device).repeat_interleave(samples_per_style)
         noise = torch.randn(class_grid.size(0), LATENT_DIM, device=device)
         gan_samples = gen(noise, class_grid)
-        # Already bounded to [0,1] with Sigmoid
+        gan_samples = torch.clamp((gan_samples + 1.0) / 2.0, 0.0, 1.0)
         save_image(gan_samples, save_path / 'cwgan_gp_generated_samples.png', nrow=samples_per_style)
         print(f"Saved cWGAN-GP results to {save_path}")
 
@@ -143,27 +156,28 @@ def pipeline():
     DIFF_EPOCHS = 50
     DIFF_LR = 2e-4
     
-    schedule = GaussianDiffusion(num_timesteps=DIFF_TIMESTEPS, device=device)
+    schedule = GaussianDiffusion(num_timesteps=DIFF_TIMESTEPS, device=device, beta_schedule='cosine')
     diff_model = PixelUNet(in_channels=3, model_channels=64).to(device)
 
     print("Training Pixel-space Diffusion on 20% subset...")
-    diff_history = train_diffusion(
+    diff_history, ema_diff_model = train_diffusion(
         model=diff_model,
         loader=train_loader,
         schedule=schedule,
         epochs=DIFF_EPOCHS,
-        lr=DIFF_LR
+        lr=DIFF_LR,
+        ema_decay=0.999,
     )
 
     print("Generating diffusion samples...")
-    diff_model.eval()
+    ema_diff_model.eval()
     with torch.no_grad():
         # Generate 10 examples per style (10 styles) => 100 samples.
         # NOTE: This diffusion model is unconditional in this repo, so
         # samples cannot be explicitly conditioned on style labels.
         # We still produce 100 samples and arrange them as a 10x10 grid.
         total_samples = 10 * 10
-        samples = schedule.p_sample_loop(diff_model, shape=(total_samples, 3, 32, 32))
+        samples = schedule.p_sample_loop(ema_diff_model, shape=(total_samples, 3, 32, 32))
         samples = torch.clamp((samples + 1.0) / 2.0, 0.0, 1.0)
         save_image(samples, save_path / 'diffusion_generated_samples.png', nrow=10)
         print(f"Saved diffusion samples to {save_path}")
@@ -171,11 +185,11 @@ def pipeline():
     print("\n--- Starting Quantitative Evaluation Phase ---")
     feature_extractor = build_feature_extractor(device)
 
-    base_evaluation(None, 'baseline', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    base_evaluation(None, 'baseline', test_loader, device, feature_extractor, latent_dim=LATENT_DIM)
 
-    evaluate_model_protocol(model, 'vae', train_loader, device, feature_extractor, latent_dim=LATENT_DIM, num_classes=num_classes)
-    evaluate_model_protocol(gen, 'gan', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
-    evaluate_model_protocol(diff_model, 'diffusion', train_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    evaluate_model_protocol(model, 'vae', test_loader, device, feature_extractor, latent_dim=LATENT_DIM, num_classes=num_classes)
+    evaluate_model_protocol(gen, 'gan', test_loader, device, feature_extractor, latent_dim=LATENT_DIM)
+    evaluate_model_protocol(ema_diff_model, 'diffusion', test_loader, device, feature_extractor, latent_dim=LATENT_DIM, schedule=schedule)
 
 if __name__ == "__main__":
     pipeline()

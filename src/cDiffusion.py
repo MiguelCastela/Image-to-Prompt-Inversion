@@ -29,7 +29,16 @@ from data_loader import (
     DEFAULT_NUM_WORKERS,
     setup_artbench_from_csv_subset,
 )
-from evaluation import EVAL_CONFIG, build_feature_extractor, base_evaluation, evaluate_model_protocol
+from evaluation import (
+    EVAL_CONFIG,
+    base_evaluation,
+    build_feature_extractor,
+    extract_inception_features,
+    feature_statistics,
+    frechet_distance,
+    get_real_samples,
+    kid_score,
+)
 
 
 
@@ -130,13 +139,13 @@ class GaussianDiffusion:
         return sqrt_alpha_prod * x_0 + sqrt_one_minus_alpha_prod * noise
 
     @torch.no_grad()
-    def p_sample(self, model, x, t, t_index):
+    def p_sample(self, model, x, t, t_index, labels=None):
         # Get current alpha/beta values
         betas_t = self._get_index(self.betas, t, x.shape)
         alpha_cumprod_t = self._get_index(self.alphas_cumprod, t, x.shape)
         alpha_cumprod_prev_t = self._get_index(self.alphas_cumprod_prev, t, x.shape)
         
-        predicted_noise = model(x, t)
+        predicted_noise = model(x, t, labels)
         
         # 1. Predict x_0 from the noise
         sqrt_recip_alphas_cumprod = 1.0 / torch.sqrt(alpha_cumprod_t)
@@ -161,7 +170,7 @@ class GaussianDiffusion:
 
         
     @torch.no_grad()
-    def p_sample_loop(self, model, shape):
+    def p_sample_loop(self, model, shape, labels=None):
         """
         Sample all steps from pure noise to reconstruct an image in latent space.
         """
@@ -170,7 +179,7 @@ class GaussianDiffusion:
         # Reverse loop from T-1 back to 0
         for i in reversed(range(0, self.num_timesteps)):
             t = torch.full((shape[0],), i, dtype=torch.long).to(self.device)
-            x = self.p_sample(model, x, t, i)
+            x = self.p_sample(model, x, t, i, labels=labels)
         return x
 
     def _get_index(self, tensor, t, x_shape):
@@ -272,7 +281,7 @@ class PixelUNet(nn.Module):
     Standard UNet for Diffusion on image space.
     Fits 32x32 ArtBench images.
     """
-    def __init__(self, in_channels=3, model_channels=64):
+    def __init__(self, in_channels=3, model_channels=64, num_classes=10):
         super().__init__()
         # Time Embedding
         self.time_embed = nn.Sequential(
@@ -283,6 +292,7 @@ class PixelUNet(nn.Module):
         )
         
         time_dim = model_channels * 4
+        self.class_embed = nn.Embedding(num_classes, time_dim)
         
         # Initial Conv
         self.init_conv = nn.Conv2d(in_channels, model_channels, 3, padding=1)
@@ -314,8 +324,10 @@ class PixelUNet(nn.Module):
         # Out
         self.out_conv = nn.Conv2d(model_channels, in_channels, 3, padding=1)
         
-    def forward(self, x, t):
+    def forward(self, x, t, labels=None):
         t_emb = self.time_embed(t)
+        if labels is not None:
+            t_emb = t_emb + self.class_embed(labels)
         
         # Initial
         h_init = self.init_conv(x) # [B, C, 28, 28]
@@ -498,8 +510,9 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None,
         running = 0.0
         n_batches = 0
 
-        for x, _, _ in tqdm(loader, desc=f'Diff epoch {epoch + 1}/{epochs}', leave=False):
+        for x, y, _ in tqdm(loader, desc=f'Diff epoch {epoch + 1}/{epochs}', leave=False):
             x = x.to(device)
+            y = y.to(device)
             # Keep x in [-1, 1] regardless of loader output range.
             if x.min() >= 0.0:
                 x = x * 2.0 - 1.0
@@ -513,7 +526,7 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None,
             t = torch.randint(0, schedule.num_timesteps, (bs,), device=device).long()
             noise = torch.randn_like(x)
             x_t = schedule.q_sample(x_0=x, t=t, noise=noise)
-            predicted_noise = model(x_t, t)
+            predicted_noise = model(x_t, t, y)
             loss = F.mse_loss(predicted_noise, noise)
 
             opt.zero_grad()
@@ -529,6 +542,59 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None,
         print(f'Diff epoch {epoch + 1:02d}/{epochs} | loss: {avg:.4f}')
 
     return history, ema.ema_model
+
+
+@torch.no_grad()
+def generate_conditional_diffusion_samples(model, schedule, count, device, num_classes=10):
+    model.eval()
+    samples = []
+    batch_size = 64
+    generated = 0
+    while generated < count:
+        cur_bs = min(batch_size, count - generated)
+        labels = torch.randint(0, num_classes, (cur_bs,), device=device)
+        batch = schedule.p_sample_loop(model, shape=(cur_bs, 3, 32, 32), labels=labels)
+        batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
+        samples.append(batch.cpu())
+        generated += cur_bs
+    return torch.cat(samples, dim=0)
+
+
+def evaluate_conditional_diffusion_protocol(model, schedule, loader, device, feature_extractor, num_classes=10):
+    fid_scores = []
+    kid_means = []
+
+    real_images = get_real_samples(loader, count=EVAL_CONFIG['reference_count'])
+    real_features = extract_inception_features(real_images, feature_extractor, device=device)
+    mu_real, sigma_real = feature_statistics(real_features)
+
+    for seed in range(EVAL_CONFIG['num_seeds']):
+        torch.manual_seed(seed)
+        print(f"  Evaluating seed {seed+1}/{EVAL_CONFIG['num_seeds']}...")
+
+        gen_images = generate_conditional_diffusion_samples(
+            model=model,
+            schedule=schedule,
+            count=EVAL_CONFIG['generated_count'],
+            device=device,
+            num_classes=num_classes,
+        )
+        gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
+        mu_gen, sigma_gen = feature_statistics(gen_features)
+        fid = frechet_distance(mu_real, sigma_real, mu_gen, sigma_gen)
+        fid_scores.append(fid)
+
+        k_mean, _ = kid_score(
+            real_features,
+            gen_features,
+            subset_size=EVAL_CONFIG['kid_subset_size'],
+            num_subsets=EVAL_CONFIG['kid_subsets'],
+        )
+        kid_means.append(k_mean)
+
+    print(f"\nResults for C-DIFFUSION over {EVAL_CONFIG['num_seeds']} seeds:")
+    print(f"  FID: {np.mean(fid_scores):.4f} ± {np.std(fid_scores):.4f}")
+    print(f"  KID: {np.mean(kid_means):.4f} ± {np.std(kid_means):.4f}\n")
 
 
 def main():
@@ -596,10 +662,10 @@ def main():
 
     # Initialize schedule and model
     schedule = GaussianDiffusion(num_timesteps=DIFF_TIMESTEPS, device=dev, beta_schedule=args.beta_schedule)
-    diff_model = PixelUNet(in_channels=3, model_channels=64).to(dev)
+    diff_model = PixelUNet(in_channels=3, model_channels=64, num_classes=num_classes).to(dev)
 
     # Train diffusion
-    print("Training Pixel-space Diffusion on full ArtBench training split...")
+    print("Training Conditional Pixel-space Diffusion...")
     diff_history, ema_model = train_diffusion(
         model=diff_model,
         loader=train_loader,
@@ -614,13 +680,14 @@ def main():
     ema_model.eval()
     with torch.no_grad():
         total_samples = 10 * 10
-        samples = schedule.p_sample_loop(ema_model, shape=(total_samples, 3, 32, 32))
+        class_grid = torch.arange(min(10, num_classes), device=dev).repeat_interleave(10)
+        samples = schedule.p_sample_loop(ema_model, shape=(class_grid.size(0), 3, 32, 32), labels=class_grid)
         samples = torch.clamp((samples + 1.0) / 2.0, 0.0, 1.0)
 
         save_path = Path(__file__).resolve().parent / 'results'
         save_path.mkdir(exist_ok=True)
-        save_image(samples, save_path / 'diffusion_generated_samples.png', nrow=10)
-        print(f"Saved diffusion samples to {save_path}")
+        save_image(samples, save_path / 'cdiffusion_generated_samples.png', nrow=10)
+        print(f"Saved conditional diffusion samples to {save_path}")
 
     # --- Evaluation: FID & KID ---
     if args.skip_eval:
@@ -635,7 +702,14 @@ def main():
         )
         feat_extractor = build_feature_extractor(dev)
         base_evaluation(None, 'baseline', test_loader, dev, feature_extractor=feat_extractor)
-        evaluate_model_protocol(ema_model, 'diffusion', test_loader, dev, feat_extractor, schedule=schedule)
+        evaluate_conditional_diffusion_protocol(
+            model=ema_model,
+            schedule=schedule,
+            loader=test_loader,
+            device=dev,
+            feature_extractor=feat_extractor,
+            num_classes=num_classes,
+        )
 
     return ema_model, diff_history
 

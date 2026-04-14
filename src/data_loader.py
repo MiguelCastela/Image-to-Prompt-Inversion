@@ -54,6 +54,7 @@ def build_transform(image_size: int = DEFAULT_IMAGE_SIZE):
         T.Resize(image_size, interpolation=T.InterpolationMode.BILINEAR),
         T.CenterCrop(image_size),
         T.ToTensor(),
+        T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
 
 
@@ -73,7 +74,7 @@ def find_project_root(start_path: Path | None = None) -> Path:
     )
 
 
-def load_artbench_train_split(project_root: Path):
+def load_artbench_splits(project_root: Path):
     scripts_dir = project_root / "scripts"
     kaggle_root = project_root / "ArtBench-10"
 
@@ -84,8 +85,19 @@ def load_artbench_train_split(project_root: Path):
 
     hf_ds = load_kaggle_artbench10_splits(kaggle_root)
     train_hf = hf_ds["train"]
+    test_hf = hf_ds["test"]
     class_names = list(train_hf.features["label"].names)
+    return train_hf, test_hf, class_names
+
+
+def load_artbench_train_split(project_root: Path):
+    train_hf, _, class_names = load_artbench_splits(project_root)
     return train_hf, class_names
+
+
+def load_artbench_test_split(project_root: Path):
+    _, test_hf, class_names = load_artbench_splits(project_root)
+    return test_hf, class_names
 
 
 def load_ids_from_training_csv(csv_path: Path, index_column: str = DEFAULT_INDEX_COLUMN) -> list[int]:
