@@ -370,7 +370,7 @@ def main():
     parser.add_argument('--latent-dim', type=int, default=128, help='Latent dimensionality for non-search mode')
     parser.add_argument('--learning-rate', type=float, default=1e-4, help='Learning rate for non-search mode')
     parser.add_argument('--base-channels', type=int, default=64, choices=[32, 64, 128], help='Base channels (ngf/ndf) for non-search mode')
-    parser.add_argument('--base-updates-per-g', type=int, default=5, choices=[3, 5, 7], help='Critic updates per generator update in non-search mode')
+    parser.add_argument('--base-updates-per-g', type=int, default=5, choices=[3, 5, 7], help='Critic updates per generator update')
     parser.add_argument('--bayes-search', action='store_true', help='Run Bayesian hyperparameter search with Optuna (TPE sampler)')
     parser.add_argument('--n-trials', type=int, default=10, help='Number of Bayesian search trials')
     parser.add_argument('--eval-count', type=int, default=2000, help='Images used to compute FID/KID per trial')

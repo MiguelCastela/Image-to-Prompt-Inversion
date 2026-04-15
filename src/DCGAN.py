@@ -268,7 +268,7 @@ def main():
     parser.add_argument('--latent-dim', type=int, default=128, help='Latent dimensionality for non-search mode')
     parser.add_argument('--learning-rate', type=float, default=2e-4, help='Learning rate for non-search mode')
     parser.add_argument('--base-channels', type=int, default=64, choices=[32, 64, 128], help='Base channels (ngf/ndf) for non-search mode')
-    parser.add_argument('--base-updates-per-g', type=int, default=5, choices=[3, 5, 7], help='Discriminator updates per generator update')
+    parser.add_argument('--base-updates-per-g', type=int, default=1, choices=[1, 3, 5], help='Discriminator updates per generator update')
     parser.add_argument('--bayes-search', action='store_true', help='Run Bayesian hyperparameter search with Optuna (TPE sampler)')
     parser.add_argument('--n-trials', type=int, default=10, help='Number of Bayesian search trials')
     parser.add_argument('--eval-count', type=int, default=2000, help='Images used to compute FID/KID per trial')
@@ -339,7 +339,7 @@ def main():
             latent_dim = trial.suggest_int('latent_dims', 64, 128, step=32)
             learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)
             base_channels = trial.suggest_categorical('base_channels', [32, 64, 128])
-            base_updates_per_g = trial.suggest_categorical('base_updates_per_g', [3, 5, 7])
+            base_updates_per_g = trial.suggest_categorical('base_updates_per_g', [1, 3, 5])
 
             trial_name = f'trial_{trial.number:03d}'
             trial_result = run_dcgan_pipeline(
