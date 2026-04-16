@@ -145,13 +145,20 @@ class GaussianDiffusion:
         return sqrt_alpha_prod * x_0 + sqrt_one_minus_alpha_prod * noise
 
     @torch.no_grad()
-    def p_sample(self, model, x, t, t_index, labels=None):
+    def p_sample(self, model, x, t, t_index, labels=None, guidance_scale=1.0):
         # Get current alpha/beta values
         betas_t = self._get_index(self.betas, t, x.shape)
         alpha_cumprod_t = self._get_index(self.alphas_cumprod, t, x.shape)
         alpha_cumprod_prev_t = self._get_index(self.alphas_cumprod_prev, t, x.shape)
         
-        predicted_noise = model(x, t, labels)
+        if labels is None:
+            predicted_noise = model(x, t, None)
+        elif guidance_scale > 1.0:
+            cond_pred = model(x, t, labels)
+            uncond_pred = model(x, t, None)
+            predicted_noise = uncond_pred + guidance_scale * (cond_pred - uncond_pred)
+        else:
+            predicted_noise = model(x, t, labels)
         
         # 1. Predict x_0 from the noise
         sqrt_recip_alphas_cumprod = 1.0 / torch.sqrt(alpha_cumprod_t)
@@ -176,7 +183,7 @@ class GaussianDiffusion:
 
         
     @torch.no_grad()
-    def p_sample_loop(self, model, shape, labels=None):
+    def p_sample_loop(self, model, shape, labels=None, guidance_scale=1.0):
         """
         Sample all steps from pure noise to reconstruct an image in latent space.
         """
@@ -185,8 +192,68 @@ class GaussianDiffusion:
         # Reverse loop from T-1 back to 0
         for i in reversed(range(0, self.num_timesteps)):
             t = torch.full((shape[0],), i, dtype=torch.long).to(self.device)
-            x = self.p_sample(model, x, t, i, labels=labels)
+            x = self.p_sample(model, x, t, i, labels=labels, guidance_scale=guidance_scale)
         return x
+
+    @torch.no_grad()
+    def ddim_sample_loop(self, model, shape, labels=None, guidance_scale=1.0, sample_steps=100, eta=0.0):
+        """DDIM sampling with optional classifier-free guidance."""
+        model.eval()
+        sample_steps = max(1, min(int(sample_steps), self.num_timesteps))
+        x = torch.randn(shape, device=self.device)
+        step_indices = torch.linspace(self.num_timesteps - 1, 0, sample_steps, device=self.device).long()
+
+        for i, step in enumerate(step_indices):
+            t_val = int(step.item())
+            t = torch.full((shape[0],), t_val, dtype=torch.long, device=self.device)
+
+            if labels is None:
+                predicted_noise = model(x, t, None)
+            elif guidance_scale > 1.0:
+                cond_pred = model(x, t, labels)
+                uncond_pred = model(x, t, None)
+                predicted_noise = uncond_pred + guidance_scale * (cond_pred - uncond_pred)
+            else:
+                predicted_noise = model(x, t, labels)
+
+            alpha_bar_t = self._get_index(self.alphas_cumprod, t, x.shape)
+            sqrt_alpha_bar_t = torch.sqrt(alpha_bar_t)
+            sqrt_one_minus_alpha_bar_t = torch.sqrt(1.0 - alpha_bar_t)
+            pred_x0 = (x - sqrt_one_minus_alpha_bar_t * predicted_noise) / sqrt_alpha_bar_t
+            pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
+
+            if i == len(step_indices) - 1:
+                x = pred_x0
+                break
+
+            t_prev_val = int(step_indices[i + 1].item())
+            t_prev = torch.full((shape[0],), t_prev_val, dtype=torch.long, device=self.device)
+            alpha_bar_prev = self._get_index(self.alphas_cumprod, t_prev, x.shape)
+
+            if eta > 0.0:
+                sigma = eta * torch.sqrt((1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t))
+                sigma = sigma * torch.sqrt(1.0 - alpha_bar_t / alpha_bar_prev)
+                noise = torch.randn_like(x)
+            else:
+                sigma = torch.zeros_like(alpha_bar_t)
+                noise = torch.zeros_like(x)
+
+            dir_xt = torch.sqrt(torch.clamp(1.0 - alpha_bar_prev - sigma ** 2, min=0.0)) * predicted_noise
+            x = torch.sqrt(alpha_bar_prev) * pred_x0 + dir_xt + sigma * noise
+
+        return x
+
+    @torch.no_grad()
+    def sample(self, model, shape, labels=None, guidance_scale=1.0, sampler='ddim', sample_steps=100):
+        if sampler == 'ddpm':
+            return self.p_sample_loop(model, shape, labels=labels, guidance_scale=guidance_scale)
+        return self.ddim_sample_loop(
+            model,
+            shape,
+            labels=labels,
+            guidance_scale=guidance_scale,
+            sample_steps=sample_steps,
+        )
 
     def _get_index(self, tensor, t, x_shape):
         """Get value at index t and expand to match x_shape."""
@@ -320,7 +387,9 @@ class PixelUNet(nn.Module):
         )
         
         time_dim = model_channels * 4
-        self.class_embed = nn.Embedding(num_classes, time_dim)
+        self.num_classes = num_classes
+        self.null_class_idx = num_classes
+        self.class_embed = nn.Embedding(num_classes + 1, time_dim)
         
         # Initial Conv
         self.init_conv = nn.Conv2d(in_channels, model_channels, 3, padding=1)
@@ -357,8 +426,12 @@ class PixelUNet(nn.Module):
         
     def forward(self, x, t, labels=None):
         t_emb = self.time_embed(t)
-        if labels is not None:
-            t_emb = t_emb + self.class_embed(labels)
+        if labels is None:
+            class_ids = torch.full((x.size(0),), self.null_class_idx, device=x.device, dtype=torch.long)
+        else:
+            class_ids = labels.clone().long()
+            class_ids[class_ids < 0] = self.null_class_idx
+        t_emb = t_emb + self.class_embed(class_ids)
         
         # Initial
         h_init = self.init_conv(x) # [B, C, 28, 28]
@@ -533,7 +606,16 @@ class EMA:
             ema_buffers[name].copy_(buf)
 
 
-def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None, ema_decay=0.999):
+def train_diffusion(
+    model,
+    loader,
+    schedule,
+    epochs=20,
+    lr=2e-4,
+    encode_fn=None,
+    ema_decay=0.999,
+    cond_dropout_prob=0.1,
+):
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     ema = EMA(model, decay=ema_decay)
     history = []
@@ -559,7 +641,11 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None,
             t = torch.randint(0, schedule.num_timesteps, (bs,), device=device).long()
             noise = torch.randn_like(x)
             x_t = schedule.q_sample(x_0=x, t=t, noise=noise)
-            predicted_noise = model(x_t, t, y)
+            cond_labels = y.clone()
+            if cond_dropout_prob > 0:
+                drop_mask = torch.rand(bs, device=device) < cond_dropout_prob
+                cond_labels[drop_mask] = -1
+            predicted_noise = model(x_t, t, cond_labels)
             loss = F.mse_loss(predicted_noise, noise)
 
             opt.zero_grad()
@@ -578,7 +664,16 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None,
 
 
 @torch.no_grad()
-def generate_conditional_diffusion_samples(model, schedule, count, device, num_classes=10):
+def generate_conditional_diffusion_samples(
+    model,
+    schedule,
+    count,
+    device,
+    num_classes=10,
+    cfg_scale=1.0,
+    sampler='ddim',
+    sample_steps=100,
+):
     model.eval()
     samples = []
     batch_size = 64
@@ -586,14 +681,31 @@ def generate_conditional_diffusion_samples(model, schedule, count, device, num_c
     while generated < count:
         cur_bs = min(batch_size, count - generated)
         labels = torch.randint(0, num_classes, (cur_bs,), device=device)
-        batch = schedule.p_sample_loop(model, shape=(cur_bs, 3, 32, 32), labels=labels)
+        batch = schedule.sample(
+            model,
+            shape=(cur_bs, 3, 32, 32),
+            labels=labels,
+            guidance_scale=cfg_scale,
+            sampler=sampler,
+            sample_steps=sample_steps,
+        )
         batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
         samples.append(batch.cpu())
         generated += cur_bs
     return torch.cat(samples, dim=0)
 
 
-def evaluate_conditional_diffusion_protocol(model, schedule, loader, device, feature_extractor, num_classes=10):
+def evaluate_conditional_diffusion_protocol(
+    model,
+    schedule,
+    loader,
+    device,
+    feature_extractor,
+    num_classes=10,
+    cfg_scale=1.0,
+    sampler='ddim',
+    sample_steps=100,
+):
     fid_scores = []
     kid_means = []
 
@@ -611,6 +723,9 @@ def evaluate_conditional_diffusion_protocol(model, schedule, loader, device, fea
             count=EVAL_CONFIG['generated_count'],
             device=device,
             num_classes=num_classes,
+            cfg_scale=cfg_scale,
+            sampler=sampler,
+            sample_steps=sample_steps,
         )
         gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
         mu_gen, sigma_gen = feature_statistics(gen_features)
@@ -639,6 +754,9 @@ def evaluate_conditional_diffusion_metrics(
     num_classes=10,
     eval_count=1000,
     num_seeds=3,
+    cfg_scale=1.0,
+    sampler='ddim',
+    sample_steps=100,
 ):
     fid_scores = []
     kid_scores = []
@@ -656,6 +774,9 @@ def evaluate_conditional_diffusion_metrics(
             count=eval_count,
             device=device,
             num_classes=num_classes,
+            cfg_scale=cfg_scale,
+            sampler=sampler,
+            sample_steps=sample_steps,
         )
         gen_features = extract_inception_features(gen_images, feature_extractor, device=device)
         mu_gen, sigma_gen = feature_statistics(gen_features)
@@ -690,6 +811,10 @@ def run_cdiffusion_pipeline(
     epochs,
     beta_schedule,
     ema_decay,
+    cond_dropout_prob,
+    cfg_scale,
+    sampler,
+    sample_steps,
     feature_extractor,
     eval_count,
     eval_seeds,
@@ -710,7 +835,7 @@ def run_cdiffusion_pipeline(
         f"[{run_name}] Starting C-Diffusion training "
         f"(lr={learning_rate:.2e}, base_channels={base_channels}, "
         f"use_attention={use_attention}, num_res_blocks={num_res_blocks}, "
-        f"timesteps={timesteps}, epochs={epochs})"
+        f"timesteps={timesteps}, epochs={epochs}, sampler={sampler}, sample_steps={sample_steps})"
     )
     history, ema_model = train_diffusion(
         model=diff_model,
@@ -719,12 +844,20 @@ def run_cdiffusion_pipeline(
         epochs=epochs,
         lr=learning_rate,
         ema_decay=ema_decay,
+        cond_dropout_prob=cond_dropout_prob,
     )
 
     if save_samples:
         with torch.no_grad():
             class_grid = torch.arange(min(10, num_classes), device=device).repeat_interleave(10)
-            samples = schedule.p_sample_loop(ema_model, shape=(class_grid.size(0), 3, 32, 32), labels=class_grid)
+            samples = schedule.sample(
+                ema_model,
+                shape=(class_grid.size(0), 3, 32, 32),
+                labels=class_grid,
+                guidance_scale=cfg_scale,
+                sampler=sampler,
+                sample_steps=sample_steps,
+            )
             samples = torch.clamp((samples + 1.0) / 2.0, 0.0, 1.0)
             save_image(samples, save_path / f'{run_name}_generated_samples.png', nrow=10)
 
@@ -737,6 +870,9 @@ def run_cdiffusion_pipeline(
         num_classes=num_classes,
         eval_count=eval_count,
         num_seeds=eval_seeds,
+        cfg_scale=cfg_scale,
+        sampler=sampler,
+        sample_steps=sample_steps,
     )
     print(
         f"[{run_name}] FID: {metrics['fid_mean']:.4f} +/- {metrics['fid_std']:.4f} | "
@@ -760,6 +896,8 @@ def main():
     parser.add_argument('--epochs', type=int, default=20, help='Locked to 20 epochs for this search')
     parser.add_argument('--beta-schedule', choices=['linear', 'cosine'], default='cosine', help='Diffusion beta schedule')
     parser.add_argument('--ema-decay', type=float, default=0.999, help='EMA decay for diffusion model weights')
+    parser.add_argument('--sampler', choices=['ddpm', 'ddim'], default='ddim', help='Sampler for generation/evaluation')
+    parser.add_argument('--sample-steps', type=int, default=100, help='Sampling steps for DDIM (recommended 50-100)')
     parser.add_argument('--learning-rate', type=float, default=2e-4, help='Learning rate for non-search mode')
     parser.add_argument('--base-channels', type=int, default=64, choices=[32, 64, 96], help='Base channels for UNet')
     parser.add_argument('--use-attention', action='store_true', help='Enable bottleneck attention in UNet')
@@ -771,6 +909,8 @@ def main():
     parser.add_argument('--eval-reference-count', type=int, default=1000, help='Number of real reference images for evaluation')
     parser.add_argument('--eval-generated-count', type=int, default=1000, help='Number of generated images for evaluation')
     parser.add_argument('--eval-seeds', type=int, default=3, help='Number of repeated seeds for protocol evaluation')
+    parser.add_argument('--cond-drop-prob', type=float, default=0.1, help='Condition dropout probability for CFG training')
+    parser.add_argument('--cfg-scale', type=float, default=6.0, help='Classifier-free guidance scale for sampling/evaluation')
     args = parser.parse_args()
     env_flag = os.environ.get('USE_20_PERCENT', '')
     use_subset = args.use_20pct or (env_flag.lower() in ('1', 'true', 'yes'))
@@ -861,6 +1001,10 @@ def main():
                 epochs=DIFF_EPOCHS,
                 beta_schedule=args.beta_schedule,
                 ema_decay=args.ema_decay,
+                cond_dropout_prob=args.cond_drop_prob,
+                cfg_scale=args.cfg_scale,
+                sampler=args.sampler,
+                sample_steps=args.sample_steps,
                 feature_extractor=feat_extractor,
                 eval_count=args.eval_generated_count,
                 eval_seeds=args.eval_seeds,
@@ -907,6 +1051,10 @@ def main():
             epochs=DIFF_EPOCHS,
             beta_schedule=args.beta_schedule,
             ema_decay=args.ema_decay,
+            cond_dropout_prob=args.cond_drop_prob,
+            cfg_scale=args.cfg_scale,
+            sampler=args.sampler,
+            sample_steps=args.sample_steps,
             feature_extractor=feat_extractor,
             eval_count=args.eval_generated_count,
             eval_seeds=args.eval_seeds,
@@ -931,6 +1079,10 @@ def main():
             epochs=DIFF_EPOCHS,
             beta_schedule=args.beta_schedule,
             ema_decay=args.ema_decay,
+            cond_dropout_prob=args.cond_drop_prob,
+            cfg_scale=args.cfg_scale,
+            sampler=args.sampler,
+            sample_steps=args.sample_steps,
             feature_extractor=feat_extractor,
             eval_count=args.eval_generated_count,
             eval_seeds=args.eval_seeds,
@@ -961,6 +1113,9 @@ def main():
             device=dev,
             feature_extractor=feat_extractor,
             num_classes=num_classes,
+            cfg_scale=args.cfg_scale,
+            sampler=args.sampler,
+            sample_steps=args.sample_steps,
         )
 
     return ema_model, diff_history

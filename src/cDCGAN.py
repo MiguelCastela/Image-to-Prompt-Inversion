@@ -148,8 +148,8 @@ def compute_gradient_penalty(critic, real_samples, fake_samples, labels):
 
 def train_cwgan_gp(generator, critic, loader, latent_dim, epochs=20, lr=1e-4, n_critic=5, lambda_gp=10):
     # Updated optimizer betas for WGAN-GP
-    opt_g = optim.Adam(generator.parameters(), lr=lr, betas=(0.0, 0.9))
-    opt_c = optim.Adam(critic.parameters(), lr=lr, betas=(0.0, 0.9))
+    opt_g = optim.Adam(generator.parameters(), lr=lr, betas=(0.0, 0.99))
+    opt_c = optim.Adam(critic.parameters(), lr=lr, betas=(0.0, 0.99))
 
     history = {'g_loss': [], 'c_loss': []}
     

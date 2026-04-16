@@ -24,7 +24,7 @@ from evaluation import build_feature_extractor, base_evaluation, evaluate_model_
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class ConvVAE(nn.Module):
-    def __init__(self, latent_dim=32, num_classes=10, class_embed_dim=32):
+    def __init__(self, latent_dim=64, num_classes=10, class_embed_dim=32):
         super().__init__()
         self.latent_dim = latent_dim
         self.num_classes = num_classes
@@ -217,7 +217,7 @@ def main():
     num_classes = len(class_names)
 
     # 3. Hyperparameters (match main.py)
-    LATENT_DIM = 128
+    LATENT_DIM = 64
     EPOCHS = 50
     LR = 1e-3
     BETA = 0.5

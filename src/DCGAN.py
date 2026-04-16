@@ -85,7 +85,6 @@ class Discriminator(nn.Module):
             nn.utils.spectral_norm(nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False)),
             nn.LeakyReLU(0.2, inplace=True),
             nn.utils.spectral_norm(nn.Conv2d(ndf * 4, 1, 4, 1, 0, bias=False)),
-            nn.Sigmoid(),
         )
 
     def forward(self, x):
@@ -93,9 +92,26 @@ class Discriminator(nn.Module):
 
 
 def train_dcgan(generator, discriminator, loader, latent_dim=100, epochs=20, lr=2e-4, beta1=0.5, n_critic=1):
-    criterion = nn.BCELoss()
-    opt_g = optim.Adam(generator.parameters(), lr=lr, betas=(beta1, 0.999))
-    opt_d = optim.Adam(discriminator.parameters(), lr=lr, betas=(beta1, 0.999))
+    def compute_gradient_penalty(disc, real_samples, fake_samples):
+        alpha = torch.rand((real_samples.size(0), 1, 1, 1), device=device)
+        interpolates = (alpha * real_samples + (1 - alpha) * fake_samples).requires_grad_(True)
+        d_interpolates = disc(interpolates)
+        grad_outputs = torch.ones((real_samples.size(0), 1), device=device)
+
+        gradients = torch.autograd.grad(
+            outputs=d_interpolates,
+            inputs=interpolates,
+            grad_outputs=grad_outputs,
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+        gradients = gradients.view(gradients.size(0), -1)
+        return ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+
+    lambda_gp = 10
+    opt_g = optim.Adam(generator.parameters(), lr=lr, betas=(0.0, 0.99))
+    opt_d = optim.Adam(discriminator.parameters(), lr=lr, betas=(0.0, 0.99))
 
     history = {'g_loss': [], 'd_loss': []}
 
@@ -105,33 +121,27 @@ def train_dcgan(generator, discriminator, loader, latent_dim=100, epochs=20, lr=
             real_imgs = real_imgs.to(device)
             bs = real_imgs.size(0)
 
-            # Train Discriminator
+            # Train critic
             discriminator.zero_grad()
-            real_labels = torch.ones(bs, 1, device=device)
-            fake_labels = torch.zeros(bs, 1, device=device)
-
-            real_out = discriminator(real_imgs)
-            d_loss_real = criterion(real_out, real_labels)
-
             z = torch.randn(bs, latent_dim, device=device)
-            fake_imgs = generator(z).detach()
-            fake_out = discriminator(fake_imgs)
-            d_loss_fake = criterion(fake_out, fake_labels)
+            fake_imgs = generator(z)
+            real_scores = discriminator(real_imgs)
+            fake_scores = discriminator(fake_imgs.detach())
+            gp = compute_gradient_penalty(discriminator, real_imgs.data, fake_imgs.data)
 
-            d_loss = (d_loss_real + d_loss_fake) * 0.5
+            d_loss = torch.mean(fake_scores) - torch.mean(real_scores) + lambda_gp * gp
             d_loss.backward()
             opt_d.step()
 
             d_running += d_loss.item()
             d_batches += 1
 
-            # Train Generator every n_critic discriminator updates.
+            # Train generator every n_critic critic updates.
             if step_idx % n_critic == 0:
                 generator.zero_grad()
                 z = torch.randn(bs, latent_dim, device=device)
                 gen_imgs = generator(z)
-                out = discriminator(gen_imgs)
-                g_loss = criterion(out, real_labels)
+                g_loss = -torch.mean(discriminator(gen_imgs))
                 g_loss.backward()
                 opt_g.step()
 
@@ -140,7 +150,7 @@ def train_dcgan(generator, discriminator, loader, latent_dim=100, epochs=20, lr=
 
         history['d_loss'].append(d_running / d_batches if d_batches > 0 else 0)
         history['g_loss'].append(g_running / g_batches if g_batches > 0 else 0)
-        print(f"Epoch {epoch+1} | D Loss: {history['d_loss'][-1]:.4f} | G Loss: {history['g_loss'][-1]:.4f}")
+        print(f"Epoch {epoch+1} | Critic Loss: {history['d_loss'][-1]:.4f} | G Loss: {history['g_loss'][-1]:.4f}")
 
     return history
 
@@ -217,7 +227,7 @@ def run_dcgan_pipeline(
     disc.apply(weights_init_normal)
 
     print(
-        f"[{run_name}] Starting DCGAN training "
+        f"[{run_name}] Starting WGAN-GP training "
         f"(lr={learning_rate:.2e}, latent_dim={latent_dim}, base_channels={base_channels}, "
         f"base_updates_per_g={base_updates_per_g})"
     )

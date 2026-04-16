@@ -177,7 +177,10 @@ def generate_samples(model, model_type, count=5000, latent_dim=128, device='cpu'
             elif model_type == 'diffusion':
                 if schedule is None:
                     raise ValueError('Diffusion evaluation requires a valid schedule.')
-                batch = schedule.p_sample_loop(model, shape=(batch_size, 3, 32, 32))
+                if hasattr(schedule, 'sample'):
+                    batch = schedule.sample(model, shape=(batch_size, 3, 32, 32), sampler='ddim', sample_steps=100)
+                else:
+                    batch = schedule.p_sample_loop(model, shape=(batch_size, 3, 32, 32))
                 batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
 
             samples.append(batch.cpu())

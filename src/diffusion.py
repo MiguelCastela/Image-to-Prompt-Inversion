@@ -179,6 +179,52 @@ class GaussianDiffusion:
             x = self.p_sample(model, x, t, i)
         return x
 
+    @torch.no_grad()
+    def ddim_sample_loop(self, model, shape, sample_steps=100, eta=0.0):
+        """DDIM sampling with configurable step count."""
+        model.eval()
+        sample_steps = max(1, min(int(sample_steps), self.num_timesteps))
+        x = torch.randn(shape, device=self.device)
+        step_indices = torch.linspace(self.num_timesteps - 1, 0, sample_steps, device=self.device).long()
+
+        for i, step in enumerate(step_indices):
+            t_val = int(step.item())
+            t = torch.full((shape[0],), t_val, dtype=torch.long, device=self.device)
+
+            predicted_noise = model(x, t)
+            alpha_bar_t = self._get_index(self.alphas_cumprod, t, x.shape)
+            sqrt_alpha_bar_t = torch.sqrt(alpha_bar_t)
+            sqrt_one_minus_alpha_bar_t = torch.sqrt(1.0 - alpha_bar_t)
+            pred_x0 = (x - sqrt_one_minus_alpha_bar_t * predicted_noise) / sqrt_alpha_bar_t
+            pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
+
+            if i == len(step_indices) - 1:
+                x = pred_x0
+                break
+
+            t_prev_val = int(step_indices[i + 1].item())
+            t_prev = torch.full((shape[0],), t_prev_val, dtype=torch.long, device=self.device)
+            alpha_bar_prev = self._get_index(self.alphas_cumprod, t_prev, x.shape)
+
+            if eta > 0.0:
+                sigma = eta * torch.sqrt((1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t))
+                sigma = sigma * torch.sqrt(1.0 - alpha_bar_t / alpha_bar_prev)
+                noise = torch.randn_like(x)
+            else:
+                sigma = torch.zeros_like(alpha_bar_t)
+                noise = torch.zeros_like(x)
+
+            dir_xt = torch.sqrt(torch.clamp(1.0 - alpha_bar_prev - sigma ** 2, min=0.0)) * predicted_noise
+            x = torch.sqrt(alpha_bar_prev) * pred_x0 + dir_xt + sigma * noise
+
+        return x
+
+    @torch.no_grad()
+    def sample(self, model, shape, sampler='ddim', sample_steps=100):
+        if sampler == 'ddpm':
+            return self.p_sample_loop(model, shape)
+        return self.ddim_sample_loop(model, shape, sample_steps=sample_steps)
+
     def _get_index(self, tensor, t, x_shape):
         """Get value at index t and expand to match x_shape."""
         out = tensor.gather(-1, t)
@@ -573,6 +619,8 @@ def evaluate_diffusion_metrics(
     feature_extractor,
     eval_count=1000,
     num_seeds=3,
+    sampler='ddim',
+    sample_steps=100,
 ):
     fid_scores = []
     kid_scores = []
@@ -590,7 +638,12 @@ def evaluate_diffusion_metrics(
         total = 0
         while total < eval_count:
             cur_bs = min(batch_size, eval_count - total)
-            batch = schedule.p_sample_loop(model, shape=(cur_bs, 3, 32, 32))
+            batch = schedule.sample(
+                model,
+                shape=(cur_bs, 3, 32, 32),
+                sampler=sampler,
+                sample_steps=sample_steps,
+            )
             batch = torch.clamp((batch + 1.0) / 2.0, 0.0, 1.0)
             generated.append(batch.cpu())
             total += cur_bs
@@ -628,6 +681,8 @@ def run_diffusion_pipeline(
     epochs,
     beta_schedule,
     ema_decay,
+    sampler,
+    sample_steps,
     feature_extractor,
     eval_count,
     eval_seeds,
@@ -647,7 +702,7 @@ def run_diffusion_pipeline(
         f"[{run_name}] Starting Diffusion training "
         f"(lr={learning_rate:.2e}, base_channels={base_channels}, "
         f"use_attention={use_attention}, num_res_blocks={num_res_blocks}, "
-        f"timesteps={timesteps}, epochs={epochs})"
+        f"timesteps={timesteps}, epochs={epochs}, sampler={sampler}, sample_steps={sample_steps})"
     )
     history, ema_model = train_diffusion(
         model=diff_model,
@@ -660,7 +715,12 @@ def run_diffusion_pipeline(
 
     if save_samples:
         with torch.no_grad():
-            samples = schedule.p_sample_loop(ema_model, shape=(100, 3, 32, 32))
+            samples = schedule.sample(
+                ema_model,
+                shape=(100, 3, 32, 32),
+                sampler=sampler,
+                sample_steps=sample_steps,
+            )
             samples = torch.clamp((samples + 1.0) / 2.0, 0.0, 1.0)
             save_image(samples, save_path / f'{run_name}_generated_samples.png', nrow=10)
 
@@ -672,6 +732,8 @@ def run_diffusion_pipeline(
         feature_extractor=feature_extractor,
         eval_count=eval_count,
         num_seeds=eval_seeds,
+        sampler=sampler,
+        sample_steps=sample_steps,
     )
     print(
         f"[{run_name}] FID: {metrics['fid_mean']:.4f} +/- {metrics['fid_std']:.4f} | "
@@ -702,6 +764,8 @@ def main():
     parser.add_argument('--n-trials', type=int, default=10, help='Number of Bayesian search trials')
     parser.add_argument('--beta-schedule', choices=['linear', 'cosine'], default='cosine', help='Diffusion beta schedule')
     parser.add_argument('--ema-decay', type=float, default=0.999, help='EMA decay for diffusion model weights')
+    parser.add_argument('--sampler', choices=['ddpm', 'ddim'], default='ddim', help='Sampler for generation/evaluation')
+    parser.add_argument('--sample-steps', type=int, default=100, help='Sampling steps for DDIM (recommended 50-100)')
     parser.add_argument('--skip-eval', action='store_true', help='Skip FID/KID evaluation phase')
     parser.add_argument('--eval-count', type=int, default=None, help='Alias: sets both --eval-reference-count and --eval-generated-count')
     parser.add_argument('--eval-reference-count', type=int, default=1000, help='Number of real reference images for evaluation')
@@ -794,6 +858,8 @@ def main():
                 epochs=DIFF_EPOCHS,
                 beta_schedule=args.beta_schedule,
                 ema_decay=args.ema_decay,
+                sampler=args.sampler,
+                sample_steps=args.sample_steps,
                 feature_extractor=feat_extractor,
                 eval_count=args.eval_generated_count,
                 eval_seeds=args.eval_seeds,
@@ -839,6 +905,8 @@ def main():
             epochs=DIFF_EPOCHS,
             beta_schedule=args.beta_schedule,
             ema_decay=args.ema_decay,
+            sampler=args.sampler,
+            sample_steps=args.sample_steps,
             feature_extractor=feat_extractor,
             eval_count=args.eval_generated_count,
             eval_seeds=args.eval_seeds,
@@ -863,6 +931,8 @@ def main():
             epochs=DIFF_EPOCHS,
             beta_schedule=args.beta_schedule,
             ema_decay=args.ema_decay,
+            sampler=args.sampler,
+            sample_steps=args.sample_steps,
             feature_extractor=feat_extractor,
             eval_count=args.eval_generated_count,
             eval_seeds=args.eval_seeds,

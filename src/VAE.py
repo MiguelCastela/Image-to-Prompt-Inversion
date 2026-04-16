@@ -26,7 +26,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class ConvVAE(nn.Module):
-    def __init__(self, latent_dim=32):
+    def __init__(self, latent_dim=64):
         super().__init__()
         self.latent_dim = latent_dim
 
@@ -195,7 +195,7 @@ def main():
         pin_memory=torch.cuda.is_available(),
     )
 
-    LATENT_DIM = 128
+    LATENT_DIM = 64
     EPOCHS = 50
     LR = 1e-3
     BETA = 0.5
