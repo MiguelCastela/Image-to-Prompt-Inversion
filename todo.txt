@@ -1,8 +1,13 @@
-Fazer abadesso search para cdcgan e diff🇧🇹🇧🇹🇧🇹🇧🇹🇧🇹
+VAE:
+    - 20% dataset em cada um os 3 modelos, com 50 epochs. Eval em 10 seeds
+    - Decidir melhor modelo
+    - Correr com 100% em 200 epochs 
 
-20% do dataset com 3 modelos q temos agora-> reportar resultados e FID+KID 
-hyperparametros do diffusion + GAN com 20% do dataset
-correr os 3 modelos no dataset todo e gerar 50 000 imagens (GAN e diffusion com os melhores hyperparametros encontrados) e reportar FID  e KID para esses resultados finais
+GAN/DIFF:
+    - HP search em 20% dataset em cada um os 2 modelos, com 20, Eval 30 trials 2000 images 5seeds
+    - 20% dataset em cada um os 2 modelos, com 50 epochs. Eval em 10 seeds 5000 images 10 seeds
+    - Decidir melhor modelo
+    - Correr com 100% em 200 epochs
 
-extra 1) FIne tune de um modelo
-extra 2) lerp e slerp para visualização de latent space🍑🍑🍑🍑🍑🍑🍑🍑🍑🍑🍑🍑🍑
+
+EXTRA: lerp e slerp para visualização de latent space, t-sne, UMAP
