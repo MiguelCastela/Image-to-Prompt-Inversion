@@ -893,7 +893,7 @@ def main():
     print(f"Using device: {dev}")
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-20pct', action='store_true', help='Use training_20_percent.csv subset')
-    parser.add_argument('--epochs', type=int, default=20, help='Locked to 20 epochs for this search')
+    parser.add_argument('--epochs', type=int, default=50, help='Training epochs per run/trial')
     parser.add_argument('--beta-schedule', choices=['linear', 'cosine'], default='cosine', help='Diffusion beta schedule')
     parser.add_argument('--ema-decay', type=float, default=0.999, help='EMA decay for diffusion model weights')
     parser.add_argument('--sampler', choices=['ddpm', 'ddim'], default='ddim', help='Sampler for generation/evaluation')
@@ -906,9 +906,9 @@ def main():
     parser.add_argument('--n-trials', type=int, default=10, help='Number of Bayesian search trials')
     parser.add_argument('--skip-eval', action='store_true', help='Skip FID/KID evaluation phase')
     parser.add_argument('--eval-count', type=int, default=None, help='Alias: sets both --eval-reference-count and --eval-generated-count')
-    parser.add_argument('--eval-reference-count', type=int, default=1000, help='Number of real reference images for evaluation')
-    parser.add_argument('--eval-generated-count', type=int, default=1000, help='Number of generated images for evaluation')
-    parser.add_argument('--eval-seeds', type=int, default=3, help='Number of repeated seeds for protocol evaluation')
+    parser.add_argument('--eval-reference-count', type=int, default=5000, help='Number of real reference images for evaluation')
+    parser.add_argument('--eval-generated-count', type=int, default=5000, help='Number of generated images for evaluation')
+    parser.add_argument('--eval-seeds', type=int, default=10, help='Number of repeated seeds for protocol evaluation')
     parser.add_argument('--cond-drop-prob', type=float, default=0.1, help='Condition dropout probability for CFG training')
     parser.add_argument('--cfg-scale', type=float, default=6.0, help='Classifier-free guidance scale for sampling/evaluation')
     args = parser.parse_args()
@@ -964,7 +964,7 @@ def main():
 
     # Lock search-space constants requested by the project spec.
     DIFF_TIMESTEPS = 1000
-    DIFF_EPOCHS = 20
+    DIFF_EPOCHS = 50
 
     save_path = Path(__file__).resolve().parent / 'results'
     save_path.mkdir(exist_ok=True)

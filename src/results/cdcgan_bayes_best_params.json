@@ -1,12 +1,12 @@
 {
-  "best_trial": 4,
-  "best_fid": 177.43865743650912,
+  "best_trial": 0,
+  "best_fid": 183.67205826601395,
   "params": {
-    "latent_dims": 64,
-    "learning_rate": 0.000790261954970823,
+    "latent_dims": 96,
+    "learning_rate": 0.0007969454818643932,
     "base_channels": 32,
-    "base_updates_per_g": 5
+    "base_updates_per_g": 7
   },
-  "kid_mean": 0.15490444819969457,
-  "kid_std": 0.0021603914113570845
+  "kid_mean": 0.13866119471274008,
+  "kid_std": 0.0014206149449606398
 }

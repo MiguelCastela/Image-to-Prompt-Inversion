@@ -30,7 +30,17 @@ from data_loader import (
     DEFAULT_NUM_WORKERS,
     setup_artbench_from_csv_subset,
 )
-from evaluation import EVAL_CONFIG, build_feature_extractor, base_evaluation, evaluate_model_protocol
+from evaluation import (
+    EVAL_CONFIG,
+    base_evaluation,
+    build_feature_extractor,
+    extract_inception_features,
+    feature_statistics,
+    frechet_distance,
+    get_real_samples,
+    kid_score,
+    evaluate_model_protocol,
+)
 
 try:
     import optuna
@@ -768,9 +778,9 @@ def main():
     parser.add_argument('--sample-steps', type=int, default=100, help='Sampling steps for DDIM (recommended 50-100)')
     parser.add_argument('--skip-eval', action='store_true', help='Skip FID/KID evaluation phase')
     parser.add_argument('--eval-count', type=int, default=None, help='Alias: sets both --eval-reference-count and --eval-generated-count')
-    parser.add_argument('--eval-reference-count', type=int, default=1000, help='Number of real reference images for evaluation')
-    parser.add_argument('--eval-generated-count', type=int, default=1000, help='Number of generated images for evaluation')
-    parser.add_argument('--eval-seeds', type=int, default=3, help='Number of repeated seeds for protocol evaluation')
+    parser.add_argument('--eval-reference-count', type=int, default=5000, help='Number of real reference images for evaluation')
+    parser.add_argument('--eval-generated-count', type=int, default=5000, help='Number of generated images for evaluation')
+    parser.add_argument('--eval-seeds', type=int, default=10, help='Number of repeated seeds for protocol evaluation')
     args = parser.parse_args()
     env_flag = os.environ.get('USE_20_PERCENT', '')
     use_subset = args.use_20pct or (env_flag.lower() in ('1', 'true', 'yes'))
@@ -817,7 +827,7 @@ def main():
 
     # Hyperparameters
     DIFF_TIMESTEPS = 1000
-    DIFF_EPOCHS = 20
+    DIFF_EPOCHS = 50
     DIFF_LR = args.learning_rate
 
     # Alias support to keep CLI naming consistent with GAN scripts.
