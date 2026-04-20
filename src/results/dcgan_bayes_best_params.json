@@ -1,0 +1,12 @@
+{
+  "best_trial": 15,
+  "best_fid": 127.4965469109899,
+  "params": {
+    "latent_dims": 96,
+    "learning_rate": 0.0009930706143258846,
+    "base_channels": 128,
+    "base_updates_per_g": 3
+  },
+  "kid_mean": 0.0837677973360541,
+  "kid_std": 0.0009315081219267866
+}

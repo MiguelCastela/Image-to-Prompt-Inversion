@@ -1,0 +1,12 @@
+{
+  "best_trial": 24,
+  "best_fid": 55.303265286505074,
+  "params": {
+    "learning_rate": 0.00038996113744273794,
+    "base_channels": 96,
+    "use_attention": false,
+    "num_res_blocks": 3
+  },
+  "kid_mean": 0.022303671492997484,
+  "kid_std": 0.0008079682857000594
+}
