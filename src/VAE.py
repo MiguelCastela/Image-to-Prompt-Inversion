@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import tqdm
 from torchvision.utils import save_image
+import matplotlib.pyplot as plt
 
 # data loading utilities
 import argparse
@@ -20,7 +21,7 @@ from data_loader import (
     DEFAULT_NUM_WORKERS,
     setup_artbench_from_csv_subset,
 )
-from evaluation import build_feature_extractor, base_evaluation, evaluate_model_protocol
+from evaluation import EVAL_CONFIG, build_feature_extractor, base_evaluation, evaluate_model_protocol
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -96,10 +97,75 @@ def _to_unit_interval(x):
     return x.clamp(0.0, 1.0)
 
 
-def train_vae(model, loader, optimizer, epochs=20, beta=0.7, warmup_epochs=5):
+def plot_recon_kl_curves(history, save_file):
+    epochs = [i + 1 for i in range(len(history))]
+    recon = [h['train_recon_bce'] for h in history]
+    kl = [h['train_kl'] for h in history]
+
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    ax2 = ax1.twinx()
+
+    l1 = ax1.plot(epochs, recon, color='tab:blue', linewidth=2.0, label='Reconstruction Loss')
+    l2 = ax2.plot(epochs, kl, color='tab:red', linewidth=2.0, label='KL Divergence')
+
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Reconstruction Loss (BCE)', color='tab:blue')
+    ax2.set_ylabel('KL Divergence', color='tab:red')
+    ax1.tick_params(axis='y', colors='tab:blue')
+    ax2.tick_params(axis='y', colors='tab:red')
+    ax1.grid(alpha=0.25)
+
+    lines = l1 + l2
+    labels = [line.get_label() for line in lines]
+    ax1.legend(lines, labels, loc='best')
+    fig.tight_layout()
+    fig.savefig(save_file, dpi=180)
+    plt.close(fig)
+
+
+def save_generation_progress_grid(epoch_samples, ordered_epochs, save_file):
+    num_rows = 3
+    num_cols = len(ordered_epochs)
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.0 * num_cols, 3.0 * num_rows))
+
+    if num_cols == 1:
+        axes = axes.reshape(num_rows, 1)
+
+    for col, ep in enumerate(ordered_epochs):
+        batch = epoch_samples[ep]
+        for row in range(num_rows):
+            ax = axes[row, col]
+            img = batch[row].permute(1, 2, 0).numpy()
+            ax.imshow(img)
+            ax.axis('off')
+            if row == 0:
+                ax.set_title(f'Epoch {ep}')
+            if col == 0:
+                ax.set_ylabel(f'Image {row + 1}')
+
+    fig.suptitle('Generation Evolution (fixed seed)')
+    fig.tight_layout()
+    fig.savefig(save_file, dpi=180)
+    plt.close(fig)
+
+
+def train_vae(
+    model,
+    loader,
+    optimizer,
+    epochs=20,
+    beta=0.7,
+    warmup_epochs=5,
+    snapshot_epochs=None,
+    snapshot_latents=None,
+):
     model.train()
     hist = []
+    epoch_samples = {}
+    snapshot_epoch_set = set(snapshot_epochs or [])
+
     for ep in range(epochs):
+        epoch_num = ep + 1
         tl, tr, tk = 0.0, 0.0, 0.0
         current_beta = beta * min(1.0, ep / max(warmup_epochs, 1))
         for x, _, _ in tqdm(loader, leave=False):
@@ -119,8 +185,16 @@ def train_vae(model, loader, optimizer, epochs=20, beta=0.7, warmup_epochs=5):
             tk += kl.item() * b
         n = len(loader.dataset)
         hist.append({'train_loss': tl / n, 'train_recon_bce': tr / n, 'train_kl': tk / n, 'beta': current_beta})
-        print(f'Epoch {ep+1}/{epochs} | beta={current_beta:.4f} train_loss={tl/n:.4f} train_recon={tr/n:.4f} train_kl={tk/n:.4f}')
-    return hist
+        print(f'Epoch {epoch_num}/{epochs} | beta={current_beta:.4f} train_loss={tl/n:.4f} train_recon={tr/n:.4f} train_kl={tk/n:.4f}')
+
+        if snapshot_latents is not None and epoch_num in snapshot_epoch_set:
+            model.eval()
+            with torch.no_grad():
+                snap = model.decode(snapshot_latents).detach().cpu().clamp(0.0, 1.0)
+            epoch_samples[epoch_num] = snap
+            model.train()
+
+    return hist, epoch_samples
 
 
 def evaluate_vae(model, loader, beta=0.7):
@@ -146,6 +220,10 @@ def evaluate_vae(model, loader, beta=0.7):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-20pct', action='store_true', help='Use training_20_percent.csv subset')
+    parser.add_argument('--epochs', type=int, default=50, help='Number of training epochs')
+    parser.add_argument('--eval-count', type=int, default=5000, help='Number of images for real/generated evaluation')
+    parser.add_argument('--eval-seeds', type=int, default=10, help='Number of evaluation seeds')
+    parser.add_argument('--progress-seed', type=int, default=42, help='Seed for fixed latent vectors used in progression grid')
     args = parser.parse_args()
 
     # allow environment variable override
@@ -196,21 +274,53 @@ def main():
     )
 
     LATENT_DIM = 64
-    EPOCHS = 50
+    EPOCHS = args.epochs
     LR = 1e-3
     BETA = 0.5
+
+    EVAL_CONFIG['reference_count'] = args.eval_count
+    EVAL_CONFIG['generated_count'] = args.eval_count
+    EVAL_CONFIG['num_seeds'] = args.eval_seeds
 
     model = ConvVAE(latent_dim=LATENT_DIM).to(dev)
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
+    save_path = Path(__file__).resolve().parent / 'results'
+    save_path.mkdir(exist_ok=True)
+
+    requested_milestones = [1, 50, 100, 200]
+    snapshot_epochs = [ep for ep in requested_milestones if ep <= EPOCHS]
+    gen = torch.Generator(device=dev)
+    gen.manual_seed(args.progress_seed)
+    snapshot_latents = torch.randn(3, LATENT_DIM, device=dev, generator=gen)
+
     print("Starting VAE training (non-conditional) on full ArtBench training split...")
-    history = train_vae(model, train_loader, optimizer, epochs=EPOCHS, beta=BETA)
+    history, epoch_samples = train_vae(
+        model,
+        train_loader,
+        optimizer,
+        epochs=EPOCHS,
+        beta=BETA,
+        snapshot_epochs=snapshot_epochs,
+        snapshot_latents=snapshot_latents,
+    )
 
     print("Training complete.")
 
+    should_export_final_artifacts = (not use_subset) and (EPOCHS >= 200)
+    if should_export_final_artifacts:
+        loss_plot_path = save_path / 'vae_recon_kl_curves_200ep.png'
+        plot_recon_kl_curves(history, loss_plot_path)
+        print(f"Saved reconstruction/KL curve to {loss_plot_path}")
+
+        if all(ep in epoch_samples for ep in requested_milestones):
+            progression_path = save_path / f'vae_generation_progress_seed_{args.progress_seed}.png'
+            save_generation_progress_grid(epoch_samples, requested_milestones, progression_path)
+            print(f"Saved epoch progression grid to {progression_path}")
+        else:
+            print('Progression grid skipped: missing one or more milestone snapshots (1, 50, 100, 200).')
+
     # Generate and save 100 samples for non-conditional VAE.
-    save_path = Path(__file__).resolve().parent / 'results'
-    save_path.mkdir(exist_ok=True)
     with torch.no_grad():
         model.eval()
         z = torch.randn(100, LATENT_DIM, device=dev)

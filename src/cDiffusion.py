@@ -183,12 +183,15 @@ class GaussianDiffusion:
 
         
     @torch.no_grad()
-    def p_sample_loop(self, model, shape, labels=None, guidance_scale=1.0):
+    def p_sample_loop(self, model, shape, labels=None, guidance_scale=1.0, initial_noise=None):
         """
         Sample all steps from pure noise to reconstruct an image in latent space.
         """
         model.eval()
-        x = torch.randn(shape).to(self.device)
+        if initial_noise is not None:
+            x = initial_noise.to(self.device).clone()
+        else:
+            x = torch.randn(shape, device=self.device)
         # Reverse loop from T-1 back to 0
         for i in reversed(range(0, self.num_timesteps)):
             t = torch.full((shape[0],), i, dtype=torch.long).to(self.device)
@@ -196,11 +199,14 @@ class GaussianDiffusion:
         return x
 
     @torch.no_grad()
-    def ddim_sample_loop(self, model, shape, labels=None, guidance_scale=1.0, sample_steps=100, eta=0.0):
+    def ddim_sample_loop(self, model, shape, labels=None, guidance_scale=1.0, sample_steps=100, eta=0.0, initial_noise=None):
         """DDIM sampling with optional classifier-free guidance."""
         model.eval()
         sample_steps = max(1, min(int(sample_steps), self.num_timesteps))
-        x = torch.randn(shape, device=self.device)
+        if initial_noise is not None:
+            x = initial_noise.to(self.device).clone()
+        else:
+            x = torch.randn(shape, device=self.device)
         step_indices = torch.linspace(self.num_timesteps - 1, 0, sample_steps, device=self.device).long()
 
         for i, step in enumerate(step_indices):
@@ -244,15 +250,22 @@ class GaussianDiffusion:
         return x
 
     @torch.no_grad()
-    def sample(self, model, shape, labels=None, guidance_scale=1.0, sampler='ddim', sample_steps=100):
+    def sample(self, model, shape, labels=None, guidance_scale=1.0, sampler='ddim', sample_steps=100, initial_noise=None):
         if sampler == 'ddpm':
-            return self.p_sample_loop(model, shape, labels=labels, guidance_scale=guidance_scale)
+            return self.p_sample_loop(
+                model,
+                shape,
+                labels=labels,
+                guidance_scale=guidance_scale,
+                initial_noise=initial_noise,
+            )
         return self.ddim_sample_loop(
             model,
             shape,
             labels=labels,
             guidance_scale=guidance_scale,
             sample_steps=sample_steps,
+            initial_noise=initial_noise,
         )
 
     def _get_index(self, tensor, t, x_shape):
@@ -615,13 +628,22 @@ def train_diffusion(
     encode_fn=None,
     ema_decay=0.999,
     cond_dropout_prob=0.1,
+    snapshot_epochs=None,
+    snapshot_noise=None,
+    snapshot_labels=None,
+    snapshot_sampler='ddim',
+    snapshot_sample_steps=100,
+    snapshot_cfg_scale=1.0,
 ):
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     ema = EMA(model, decay=ema_decay)
     history = []
+    epoch_samples = {}
+    snapshot_epoch_set = set(snapshot_epochs or [])
     model.train()
 
     for epoch in range(epochs):
+        epoch_num = epoch + 1
         running = 0.0
         n_batches = 0
 
@@ -658,9 +680,85 @@ def train_diffusion(
 
         avg = running / max(n_batches, 1)
         history.append(avg)
-        print(f'Diff epoch {epoch + 1:02d}/{epochs} | loss: {avg:.4f}')
+        print(f'Diff epoch {epoch_num:02d}/{epochs} | loss: {avg:.4f}')
 
-    return history, ema.ema_model
+        if snapshot_noise is not None and snapshot_labels is not None and epoch_num in snapshot_epoch_set:
+            with torch.no_grad():
+                snap = schedule.sample(
+                    ema.ema_model,
+                    shape=tuple(snapshot_noise.shape),
+                    labels=snapshot_labels,
+                    guidance_scale=snapshot_cfg_scale,
+                    sampler=snapshot_sampler,
+                    sample_steps=snapshot_sample_steps,
+                    initial_noise=snapshot_noise,
+                )
+                snap = torch.clamp((snap + 1.0) / 2.0, 0.0, 1.0)
+                epoch_samples[epoch_num] = snap.detach().cpu()
+
+    return history, ema.ema_model, epoch_samples
+
+
+def plot_mse_loss_curve(history, save_file):
+    epochs = np.arange(1, len(history) + 1)
+    values = np.asarray(history, dtype=np.float64)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(epochs, values, color='tab:blue', linewidth=2.0, label='MSE Loss')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('MSE Loss')
+    ax.set_title('C-Diffusion Training MSE Over Epochs')
+    ax.grid(alpha=0.25)
+    ax.legend(loc='best')
+    fig.tight_layout()
+    fig.savefig(save_file, dpi=180)
+    plt.close(fig)
+
+
+def save_generation_progress_grid(epoch_samples, ordered_epochs, save_file):
+    num_rows = 3
+    num_cols = len(ordered_epochs)
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.0 * num_cols, 3.0 * num_rows))
+
+    if num_cols == 1:
+        axes = np.asarray(axes).reshape(num_rows, 1)
+
+    for col, ep in enumerate(ordered_epochs):
+        batch = epoch_samples[ep]
+        for row in range(num_rows):
+            ax = axes[row, col]
+            img = batch[row].permute(1, 2, 0).numpy()
+            ax.imshow(img)
+            ax.axis('off')
+            if row == 0:
+                ax.set_title(f'Epoch {ep}')
+            if col == 0:
+                ax.set_ylabel(f'Image {row + 1}')
+
+    fig.suptitle('C-Diffusion Generation Evolution (fixed seed)')
+    fig.tight_layout()
+    fig.savefig(save_file, dpi=180)
+    plt.close(fig)
+
+
+def save_cdiffusion_checkpoint(
+    checkpoint_path,
+    ema_model,
+    schedule,
+    history,
+    num_classes,
+    config,
+):
+    payload = {
+        'model_state_dict': ema_model.state_dict(),
+        'schedule': {
+            'num_timesteps': int(schedule.num_timesteps),
+        },
+        'history_mse': [float(v) for v in history],
+        'num_classes': int(num_classes),
+        'config': config,
+    }
+    torch.save(payload, checkpoint_path)
 
 
 @torch.no_grad()
@@ -821,6 +919,9 @@ def run_cdiffusion_pipeline(
     save_path,
     run_name,
     save_samples=True,
+    snapshot_epochs=None,
+    snapshot_noise=None,
+    snapshot_labels=None,
 ):
     schedule = GaussianDiffusion(num_timesteps=timesteps, device=device, beta_schedule=beta_schedule)
     diff_model = PixelUNet(
@@ -837,7 +938,7 @@ def run_cdiffusion_pipeline(
         f"use_attention={use_attention}, num_res_blocks={num_res_blocks}, "
         f"timesteps={timesteps}, epochs={epochs}, sampler={sampler}, sample_steps={sample_steps})"
     )
-    history, ema_model = train_diffusion(
+    history, ema_model, epoch_samples = train_diffusion(
         model=diff_model,
         loader=train_loader,
         schedule=schedule,
@@ -845,6 +946,12 @@ def run_cdiffusion_pipeline(
         lr=learning_rate,
         ema_decay=ema_decay,
         cond_dropout_prob=cond_dropout_prob,
+        snapshot_epochs=snapshot_epochs,
+        snapshot_noise=snapshot_noise,
+        snapshot_labels=snapshot_labels,
+        snapshot_sampler=sampler,
+        snapshot_sample_steps=sample_steps,
+        snapshot_cfg_scale=cfg_scale,
     )
 
     if save_samples:
@@ -883,6 +990,7 @@ def run_cdiffusion_pipeline(
         'ema_model': ema_model,
         'schedule': schedule,
         'history': history,
+        'epoch_samples': epoch_samples,
         **metrics,
     }
 
@@ -904,6 +1012,8 @@ def main():
     parser.add_argument('--num-res-blocks', type=int, default=2, choices=[2, 3], help='Number of bottleneck residual blocks')
     parser.add_argument('--bayes-search', action='store_true', help='Run Bayesian search with Optuna (TPE sampler)')
     parser.add_argument('--n-trials', type=int, default=10, help='Number of Bayesian search trials')
+    parser.add_argument('--study-name', type=str, default='cdiffusion_bayes_search', help='Optuna study name used for persistence/resume')
+    parser.add_argument('--study-db', type=str, default=None, help='Optional path to Optuna SQLite DB (default: src/results/cdiffusion_bayes_search.db)')
     parser.add_argument('--skip-eval', action='store_true', help='Skip FID/KID evaluation phase')
     parser.add_argument('--eval-count', type=int, default=None, help='Alias: sets both --eval-reference-count and --eval-generated-count')
     parser.add_argument('--eval-reference-count', type=int, default=5000, help='Number of real reference images for evaluation')
@@ -911,6 +1021,11 @@ def main():
     parser.add_argument('--eval-seeds', type=int, default=10, help='Number of repeated seeds for protocol evaluation')
     parser.add_argument('--cond-drop-prob', type=float, default=0.1, help='Condition dropout probability for CFG training')
     parser.add_argument('--cfg-scale', type=float, default=6.0, help='Classifier-free guidance scale for sampling/evaluation')
+    parser.add_argument('--progress-seed', type=int, default=42, help='Seed used for fixed progression samples')
+    parser.add_argument('--save-checkpoint', dest='save_checkpoint', action='store_true', help='Save final EMA checkpoint for downstream analysis')
+    parser.add_argument('--no-save-checkpoint', dest='save_checkpoint', action='store_false', help='Disable final checkpoint export')
+    parser.add_argument('--checkpoint-name', type=str, default='cdiffusion_final_checkpoint.pt', help='Filename for final checkpoint in src/results')
+    parser.set_defaults(save_checkpoint=True)
     args = parser.parse_args()
     env_flag = os.environ.get('USE_20_PERCENT', '')
     use_subset = args.use_20pct or (env_flag.lower() in ('1', 'true', 'yes'))
@@ -964,7 +1079,7 @@ def main():
 
     # Lock search-space constants requested by the project spec.
     DIFF_TIMESTEPS = 1000
-    DIFF_EPOCHS = 50
+    DIFF_EPOCHS = args.epochs
 
     save_path = Path(__file__).resolve().parent / 'results'
     save_path.mkdir(exist_ok=True)
@@ -979,8 +1094,25 @@ def main():
         trial_dir = save_path / 'bayes_trials_cdiffusion'
         trial_dir.mkdir(exist_ok=True)
 
+        study_db = Path(args.study_db) if args.study_db else (save_path / 'cdiffusion_bayes_search.db')
+        study_db.parent.mkdir(parents=True, exist_ok=True)
+        storage_url = f"sqlite:///{study_db.resolve()}"
+
         sampler = optuna.samplers.TPESampler(seed=42)
-        study = optuna.create_study(direction='minimize', sampler=sampler, study_name='cdiffusion_bayes_search')
+        study = optuna.create_study(
+            direction='minimize',
+            sampler=sampler,
+            study_name=args.study_name,
+            storage=storage_url,
+            load_if_exists=True,
+        )
+
+        completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+        remaining_trials = max(0, args.n_trials - len(completed_trials))
+        print(
+            f"Using study='{args.study_name}' at {study_db} | "
+            f"completed={len(completed_trials)}, target={args.n_trials}, remaining={remaining_trials}"
+        )
 
         def objective(trial):
             learning_rate = trial.suggest_float('learning_rate', 2e-5, 5e-4, log=True)
@@ -1017,7 +1149,10 @@ def main():
             trial.set_user_attr('kid_std', trial_result['kid_std'])
             return trial_result['fid_mean']
 
-        study.optimize(objective, n_trials=args.n_trials)
+        if remaining_trials > 0:
+            study.optimize(objective, n_trials=remaining_trials)
+        else:
+            print('Target number of completed trials already reached; skipping optimization.')
 
         best = study.best_trial
         best_params = best.params
@@ -1066,7 +1201,15 @@ def main():
         ema_model = best_result['ema_model']
         schedule = best_result['schedule']
         diff_history = best_result['history']
+        epoch_samples = best_result.get('epoch_samples', {})
     else:
+        requested_milestones = [1, 50, 100, 200]
+        snapshot_epochs = [ep for ep in requested_milestones if ep <= DIFF_EPOCHS]
+        progress_generator = torch.Generator(device=dev)
+        progress_generator.manual_seed(args.progress_seed)
+        snapshot_noise = torch.randn(3, 3, 32, 32, generator=progress_generator, device=dev)
+        snapshot_labels = torch.randint(0, num_classes, (3,), generator=progress_generator, device=dev)
+
         default_result = run_cdiffusion_pipeline(
             train_loader=train_loader,
             test_loader=test_loader,
@@ -1089,10 +1232,56 @@ def main():
             save_path=save_path,
             run_name='cdiffusion_generated_samples',
             save_samples=True,
+            snapshot_epochs=snapshot_epochs,
+            snapshot_noise=snapshot_noise,
+            snapshot_labels=snapshot_labels,
         )
         ema_model = default_result['ema_model']
         schedule = default_result['schedule']
         diff_history = default_result['history']
+        epoch_samples = default_result.get('epoch_samples', {})
+
+        if (not use_subset) and (DIFF_EPOCHS >= 200):
+            mse_plot_path = save_path / 'cdiffusion_mse_curve_200ep.png'
+            plot_mse_loss_curve(diff_history, mse_plot_path)
+            print(f'Saved MSE curve to {mse_plot_path}')
+
+            if all(ep in epoch_samples for ep in requested_milestones):
+                progress_path = save_path / f'cdiffusion_generation_progress_seed_{args.progress_seed}.png'
+                save_generation_progress_grid(epoch_samples, requested_milestones, progress_path)
+                print(f'Saved epoch progression grid to {progress_path}')
+            else:
+                print('Progression grid skipped: missing one or more milestone snapshots (1, 50, 100, 200).')
+
+        if args.save_checkpoint:
+            checkpoint_path = save_path / args.checkpoint_name
+            checkpoint_cfg = {
+                'learning_rate': float(args.learning_rate),
+                'base_channels': int(args.base_channels),
+                'use_attention': bool(args.use_attention),
+                'num_res_blocks': int(args.num_res_blocks),
+                'timesteps': int(DIFF_TIMESTEPS),
+                'epochs': int(DIFF_EPOCHS),
+                'beta_schedule': args.beta_schedule,
+                'ema_decay': float(args.ema_decay),
+                'cond_drop_prob': float(args.cond_drop_prob),
+                'cfg_scale': float(args.cfg_scale),
+                'sampler': args.sampler,
+                'sample_steps': int(args.sample_steps),
+                'eval_count': int(args.eval_generated_count),
+                'eval_seeds': int(args.eval_seeds),
+                'use_20pct': bool(use_subset),
+                'progress_seed': int(args.progress_seed),
+            }
+            save_cdiffusion_checkpoint(
+                checkpoint_path=checkpoint_path,
+                ema_model=ema_model,
+                schedule=schedule,
+                history=diff_history,
+                num_classes=num_classes,
+                config=checkpoint_cfg,
+            )
+            print(f'Saved C-Diffusion checkpoint to {checkpoint_path}')
 
     # --- Evaluation: FID & KID ---
     if args.skip_eval:
