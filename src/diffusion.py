@@ -577,10 +577,24 @@ class EMA:
             ema_buffers[name].copy_(buf)
 
 
-def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None, ema_decay=0.999):
+def train_diffusion(
+    model,
+    loader,
+    schedule,
+    epochs=20,
+    lr=2e-4,
+    encode_fn=None,
+    ema_decay=0.999,
+    save_path=None,
+    run_name='diffusion',
+    sampler='ddim',
+    sample_steps=100,
+):
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     ema = EMA(model, decay=ema_decay)
     history = []
+    tracked_epochs = [1, 50, 100, 200]
+    checkpoint_samples = {}
     model.train()
 
     for epoch in range(epochs):
@@ -617,7 +631,71 @@ def train_diffusion(model, loader, schedule, epochs=20, lr=2e-4, encode_fn=None,
         history.append(avg)
         print(f'Diff epoch {epoch + 1:02d}/{epochs} | loss: {avg:.4f}')
 
+        current_epoch = epoch + 1
+        if current_epoch in tracked_epochs:
+            with torch.no_grad():
+                cpu_rng_state = torch.random.get_rng_state()
+                cuda_rng_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+
+                # Keep checkpoint samples comparable across epochs by replaying the same RNG seed.
+                torch.manual_seed(123)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed_all(123)
+
+                fixed_samples = schedule.sample(
+                    ema.ema_model,
+                    shape=(3, 3, 32, 32),
+                    sampler=sampler,
+                    sample_steps=sample_steps,
+                )
+                fixed_samples = torch.clamp((fixed_samples + 1.0) / 2.0, 0.0, 1.0)
+                checkpoint_samples[current_epoch] = fixed_samples.detach().cpu()
+
+                torch.random.set_rng_state(cpu_rng_state)
+                if cuda_rng_state is not None:
+                    torch.cuda.set_rng_state_all(cuda_rng_state)
+
+    if checkpoint_samples:
+        first_epoch = min(checkpoint_samples.keys())
+        blank_sample = torch.zeros_like(checkpoint_samples[first_epoch][0])
+        grid_images = []
+
+        for img_idx in range(3):
+            for epoch_num in tracked_epochs:
+                if epoch_num in checkpoint_samples:
+                    grid_images.append(checkpoint_samples[epoch_num][img_idx])
+                else:
+                    grid_images.append(blank_sample)
+
+        grid_tensor = torch.stack(grid_images)
+        evolution_root = save_path if save_path is not None else (Path(__file__).resolve().parent / 'results')
+        evolution_root.mkdir(exist_ok=True)
+        evolution_path = evolution_root / f'{run_name}_epoch_evolution_3x4.png'
+        save_image(grid_tensor, evolution_path, nrow=len(tracked_epochs))
+        print(f'Saved fixed-seed epoch evolution grid to {evolution_path}')
+
+        reached_epochs = sorted(checkpoint_samples.keys())
+        if len(reached_epochs) < len(tracked_epochs):
+            print(f'Warning: missing tracked epochs {sorted(set(tracked_epochs) - set(reached_epochs))}; blank tiles used in grid.')
+
     return history, ema.ema_model
+
+
+def plot_mse_loss(history, save_path, run_name):
+    epochs = range(1, len(history) + 1)
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, history, label='MSE Loss', linewidth=2)
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Diffusion Training MSE Loss')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.3)
+    plt.tight_layout()
+
+    plot_path = save_path / f'{run_name}_mse_loss.png'
+    plt.savefig(plot_path, dpi=150)
+    plt.close()
+    print(f'[{run_name}] Saved MSE loss plot to {plot_path}')
 
 
 @torch.no_grad()
@@ -721,6 +799,10 @@ def run_diffusion_pipeline(
         epochs=epochs,
         lr=learning_rate,
         ema_decay=ema_decay,
+        save_path=save_path,
+        run_name=run_name,
+        sampler=sampler,
+        sample_steps=sample_steps,
     )
 
     if save_samples:
@@ -757,6 +839,30 @@ def run_diffusion_pipeline(
         'history': history,
         **metrics,
     }
+
+
+def save_diffusion_checkpoint(model, ema_model, save_path, run_name, args, history):
+    checkpoint_path = save_path / f'{run_name}_checkpoint.pt'
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'ema_model_state_dict': ema_model.state_dict(),
+        'config': {
+            'epochs': int(args.epochs),
+            'learning_rate': float(args.learning_rate),
+            'base_channels': int(args.base_channels),
+            'use_attention': bool(args.use_attention),
+            'num_res_blocks': int(args.num_res_blocks),
+            'timesteps': 1000,
+            'beta_schedule': args.beta_schedule,
+            'ema_decay': float(args.ema_decay),
+            'sampler': args.sampler,
+            'sample_steps': int(args.sample_steps),
+        },
+        'history': history,
+    }
+    torch.save(checkpoint, checkpoint_path)
+    print(f'Saved final diffusion checkpoint to {checkpoint_path}')
+    return checkpoint_path
 
 
 def main():
@@ -827,7 +933,7 @@ def main():
 
     # Hyperparameters
     DIFF_TIMESTEPS = 1000
-    DIFF_EPOCHS = 50
+    DIFF_EPOCHS = args.epochs
     DIFF_LR = args.learning_rate
 
     # Alias support to keep CLI naming consistent with GAN scripts.
@@ -929,6 +1035,8 @@ def main():
         ema_model = best_result['ema_model']
         schedule = best_result['schedule']
         diff_history = best_result['history']
+        final_run_name = 'diffusion_best_bayes'
+        plot_mse_loss(diff_history, save_path, 'diffusion_best_bayes')
     else:
         default_result = run_diffusion_pipeline(
             train_loader=train_loader,
@@ -955,6 +1063,8 @@ def main():
         ema_model = default_result['ema_model']
         schedule = default_result['schedule']
         diff_history = default_result['history']
+        final_run_name = 'diffusion_generated_samples'
+        plot_mse_loss(diff_history, save_path, 'diffusion_generated_samples')
 
     # --- Evaluation: FID & KID ---
     if args.skip_eval:
@@ -969,6 +1079,15 @@ def main():
         )
         base_evaluation(None, 'baseline', test_loader, dev, feature_extractor=feat_extractor)
         evaluate_model_protocol(ema_model, 'diffusion', test_loader, dev, feat_extractor, schedule=schedule)
+
+    save_diffusion_checkpoint(
+        model=diff_model,
+        ema_model=ema_model,
+        save_path=save_path,
+        run_name=final_run_name,
+        args=args,
+        history=diff_history,
+    )
 
     return ema_model, diff_history
 

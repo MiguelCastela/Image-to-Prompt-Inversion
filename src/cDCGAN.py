@@ -146,12 +146,30 @@ def compute_gradient_penalty(critic, real_samples, fake_samples, labels):
 
 # --- TRAINING ---
 
-def train_cwgan_gp(generator, critic, loader, latent_dim, epochs=20, lr=1e-4, n_critic=5, lambda_gp=10):
+def train_cwgan_gp(
+    generator,
+    critic,
+    loader,
+    latent_dim,
+    epochs=20,
+    lr=1e-4,
+    n_critic=5,
+    lambda_gp=10,
+    save_path=None,
+    run_name='cdcgan',
+):
     # Updated optimizer betas for WGAN-GP
     opt_g = optim.Adam(generator.parameters(), lr=lr, betas=(0.0, 0.99))
     opt_c = optim.Adam(critic.parameters(), lr=lr, betas=(0.0, 0.99))
 
     history = {'g_loss': [], 'c_loss': []}
+    tracked_epochs = [1, 50, 100, 200]
+    checkpoint_samples = {}
+
+    fixed_gen = torch.Generator(device='cpu')
+    fixed_gen.manual_seed(123)
+    fixed_z = torch.randn(3, latent_dim, generator=fixed_gen).to(device)
+    fixed_labels = torch.arange(3, dtype=torch.long, device=device)
     
     for epoch in range(epochs):
         g_running, c_running, c_batches, g_batches = 0.0, 0.0, 0, 0
@@ -212,6 +230,37 @@ def train_cwgan_gp(generator, critic, loader, latent_dim, epochs=20, lr=1e-4, n_
         history['c_loss'].append(c_running / c_batches)
         print(f"Epoch {epoch+1} | Critic Loss: {history['c_loss'][-1]:.4f} | G Loss: {history['g_loss'][-1]:.4f}")
 
+        current_epoch = epoch + 1
+        if current_epoch in tracked_epochs:
+            with torch.no_grad():
+                generator.eval()
+                fixed_samples = generator(fixed_z, fixed_labels)
+                fixed_samples = torch.clamp((fixed_samples + 1.0) / 2.0, 0.0, 1.0)
+                checkpoint_samples[current_epoch] = fixed_samples.detach().cpu()
+                generator.train()
+
+    if checkpoint_samples:
+        first_epoch = min(checkpoint_samples.keys())
+        blank_sample = torch.zeros_like(checkpoint_samples[first_epoch][0])
+        grid_images = []
+
+        for img_idx in range(3):
+            for epoch_num in tracked_epochs:
+                if epoch_num in checkpoint_samples:
+                    grid_images.append(checkpoint_samples[epoch_num][img_idx])
+                else:
+                    grid_images.append(blank_sample)
+
+        grid_tensor = torch.stack(grid_images)
+        evolution_root = save_path if save_path is not None else (Path(__file__).resolve().parent / 'results')
+        evolution_root.mkdir(exist_ok=True)
+        evolution_path = evolution_root / f'{run_name}_epoch_evolution_3x4.png'
+        save_image(grid_tensor, evolution_path, nrow=len(tracked_epochs))
+        print(f'Saved fixed-seed epoch evolution grid to {evolution_path}')
+        reached_epochs = sorted(checkpoint_samples.keys())
+        if len(reached_epochs) < len(tracked_epochs):
+            print(f'Warning: missing tracked epochs {sorted(set(tracked_epochs) - set(reached_epochs))}; blank tiles used in grid.')
+
     return history
 
 # --- INFERENCE & VISUALIZATION ---
@@ -241,6 +290,24 @@ def latent_walk(generator, latent_dim, label=0, steps=10):
     
     samples = generator(z, labels)
     return samples
+
+
+def plot_loss_comparison(history, save_path, run_name):
+    epochs = range(1, len(history['g_loss']) + 1)
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, history['g_loss'], label='Generator Loss', linewidth=2)
+    plt.plot(epochs, history['c_loss'], label='Critic Loss', linewidth=2)
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('cWGAN-GP Training Loss')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.3)
+    plt.tight_layout()
+
+    plot_path = save_path / f'{run_name}_loss_comparison.png'
+    plt.savefig(plot_path, dpi=150)
+    plt.close()
+    print(f'[{run_name}] Saved loss comparison plot to {plot_path}')
 
 
 @torch.no_grad()
@@ -330,6 +397,8 @@ def run_cwgan_pipeline(
         epochs=epochs,
         lr=learning_rate,
         n_critic=base_updates_per_g,
+        save_path=save_path,
+        run_name=run_name,
     )
 
     if save_samples:
@@ -527,6 +596,8 @@ def main():
             num_classes=num_classes,
         )
 
+        plot_loss_comparison(best_result['history'], save_path, 'dcgan_best_bayes')
+
         return best_result['generator'], best_result['critic'], best_result['history']
 
     default_result = run_cwgan_pipeline(
@@ -555,6 +626,8 @@ def main():
         latent_dim=args.latent_dim,
         num_classes=num_classes,
     )
+
+    plot_loss_comparison(default_result['history'], save_path, 'dcgan_generated_samples')
 
     return default_result['generator'], default_result['critic'], default_result['history']
 
