@@ -91,7 +91,18 @@ class Discriminator(nn.Module):
         return self.net(x).view(-1, 1)
 
 
-def train_dcgan(generator, discriminator, loader, latent_dim=100, epochs=20, lr=2e-4, beta1=0.5, n_critic=1):
+def train_dcgan(
+    generator,
+    discriminator,
+    loader,
+    latent_dim=100,
+    epochs=20,
+    lr=2e-4,
+    beta1=0.5,
+    n_critic=1,
+    snapshot_epochs=None,
+    fixed_latents=None,
+):
     def compute_gradient_penalty(disc, real_samples, fake_samples):
         alpha = torch.rand((real_samples.size(0), 1, 1, 1), device=device)
         interpolates = (alpha * real_samples + (1 - alpha) * fake_samples).requires_grad_(True)
@@ -114,6 +125,8 @@ def train_dcgan(generator, discriminator, loader, latent_dim=100, epochs=20, lr=
     opt_d = optim.Adam(discriminator.parameters(), lr=lr, betas=(0.0, 0.99))
 
     history = {'g_loss': [], 'd_loss': []}
+    epoch_samples = {}
+    snapshot_epoch_set = set(snapshot_epochs or [])
 
     for epoch in range(epochs):
         g_running, d_running, d_batches, g_batches = 0.0, 0.0, 0, 0
@@ -152,7 +165,16 @@ def train_dcgan(generator, discriminator, loader, latent_dim=100, epochs=20, lr=
         history['g_loss'].append(g_running / g_batches if g_batches > 0 else 0)
         print(f"Epoch {epoch+1} | Critic Loss: {history['d_loss'][-1]:.4f} | G Loss: {history['g_loss'][-1]:.4f}")
 
-    return history
+        current_epoch = epoch + 1
+        if fixed_latents is not None and current_epoch in snapshot_epoch_set:
+            generator.eval()
+            with torch.no_grad():
+                snap = generator(fixed_latents)
+                snap = torch.clamp((snap + 1.0) / 2.0, 0.0, 1.0)
+            epoch_samples[current_epoch] = snap.detach().cpu()
+            generator.train()
+
+    return history, epoch_samples
 
 
 @torch.no_grad()
@@ -219,6 +241,7 @@ def run_dcgan_pipeline(
     run_name,
     eval_count=2000,
     eval_seeds=3,
+    progress_seed=42,
     save_samples=True,
 ):
     gen = Generator(latent_dim=latent_dim, ngf=base_channels).to(device)
@@ -231,7 +254,13 @@ def run_dcgan_pipeline(
         f"(lr={learning_rate:.2e}, latent_dim={latent_dim}, base_channels={base_channels}, "
         f"base_updates_per_g={base_updates_per_g})"
     )
-    history = train_dcgan(
+    requested_milestones = [1, 50, 100, 200]
+    snapshot_epochs = [ep for ep in requested_milestones if ep <= epochs]
+    progress_gen = torch.Generator(device=device)
+    progress_gen.manual_seed(progress_seed)
+    fixed_latents = torch.randn(3, latent_dim, device=device, generator=progress_gen)
+
+    history, epoch_samples = train_dcgan(
         gen,
         disc,
         train_loader,
@@ -239,7 +268,22 @@ def run_dcgan_pipeline(
         epochs=epochs,
         lr=learning_rate,
         n_critic=base_updates_per_g,
+        snapshot_epochs=snapshot_epochs,
+        fixed_latents=fixed_latents,
     )
+
+    if all(ep in epoch_samples for ep in requested_milestones):
+        grid_images = []
+        for img_idx in range(3):
+            for epoch_num in requested_milestones:
+                grid_images.append(epoch_samples[epoch_num][img_idx])
+
+        progress_grid = torch.stack(grid_images)
+        progress_path = save_path / f'{run_name}_generation_progress_seed_{progress_seed}.png'
+        save_image(progress_grid, progress_path, nrow=len(requested_milestones))
+        print(f'[{run_name}] Saved epoch progression grid to {progress_path}')
+    else:
+        print(f'[{run_name}] Progression grid skipped: missing one or more milestone snapshots (1, 50, 100, 200).')
 
     if save_samples:
         with torch.no_grad():
@@ -283,6 +327,7 @@ def main():
     parser.add_argument('--n-trials', type=int, default=10, help='Number of Bayesian search trials')
     parser.add_argument('--eval-count', type=int, default=2000, help='Images used to compute FID/KID per trial')
     parser.add_argument('--eval-seeds', type=int, default=3, help='Number of random seeds per trial for metric averaging')
+    parser.add_argument('--progress-seed', type=int, default=42, help='Seed for fixed latent vectors used in progression grid')
     args = parser.parse_args()
     env_flag = os.environ.get('USE_20_PERCENT', '')
     use_subset = args.use_20pct or (env_flag.lower() in ('1', 'true', 'yes'))
@@ -365,6 +410,7 @@ def main():
                 run_name=trial_name,
                 eval_count=args.eval_count,
                 eval_seeds=args.eval_seeds,
+                progress_seed=args.progress_seed,
                 save_samples=True,
             )
 
@@ -407,6 +453,7 @@ def main():
             run_name='dcgan_nc_best_bayes',
             eval_count=args.eval_count,
             eval_seeds=args.eval_seeds,
+            progress_seed=args.progress_seed,
             save_samples=True,
         )
 
@@ -433,6 +480,7 @@ def main():
         run_name='dcgan_nc',
         eval_count=args.eval_count,
         eval_seeds=args.eval_seeds,
+        progress_seed=args.progress_seed,
         save_samples=True,
     )
 
