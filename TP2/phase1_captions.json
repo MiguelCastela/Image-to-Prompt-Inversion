@@ -1,0 +1,56 @@
+{
+  "1159_25.png": {
+    "base_caption": "a glass of orange juice with slices of orange",
+    "subject": "Orange juice",
+    "lighting": "\"Lighting\"",
+    "medium": "Orange juice",
+    "camera_angle": "A glass of orange juice",
+    "artist_style": "Concept art",
+    "assembled_prompt": "Orange juice, Orange juice, Concept art, \"Lighting\", A glass of orange juice"
+  },
+  "1159_29.png": {
+    "base_caption": "a palm tree stands in front of the ocean at sunset",
+    "subject": "The palm tree on the beach at sunset",
+    "lighting": "soft natural light, golden hour, neon",
+    "medium": "Digital art",
+    "camera_angle": "The camera angle or perspective is the angle of the camera relative to the subject.",
+    "artist_style": "3d rendering",
+    "assembled_prompt": "The palm tree on the beach at sunset, Digital art, 3d rendering, soft natural light, golden hour, neon, The camera angle or perspective is the angle of the camera relative to the subject"
+  },
+  "1159_3.png": {
+    "base_caption": "a female character with fire coming out of her hair",
+    "subject": "The main subject of this image is a female character with fire coming out of her hands",
+    "lighting": "I would describe it as soft natural light, but I would also describe it as dramatic studio light, golden hour, and neon.",
+    "medium": "Digital art",
+    "camera_angle": "The camera angle or perspective is a way of",
+    "artist_style": "",
+    "assembled_prompt": "The main subject of this image is a female character with fire coming out of her hands, Digital art, I would describe it as soft natural light, but I would also describe it as dramatic studio light, golden hour, and neon, The camera angle or perspective is a way of"
+  },
+  "1159_7.png": {
+    "base_caption": "a hedgehog is sitting on top of a cube",
+    "subject": "A hedgehog",
+    "lighting": "I would describe it as soft natural light",
+    "medium": "3D render",
+    "camera_angle": "The camera angle or perspective is the angle of the camera relative to the subject.",
+    "artist_style": "3d art",
+    "assembled_prompt": "A hedgehog, 3D render, 3d art, I would describe it as soft natural light, The camera angle or perspective is the angle of the camera relative to the subject"
+  },
+  "7836.png": {
+    "base_caption": "an astronaut standing on the surface of the earth looking at the stars",
+    "subject": "The astronaut",
+    "lighting": "This image is a composite of a number of exposures taken at different times of day, with the camera set to ISO 1600, f/8, and a shutter speed of 1/250 sec.",
+    "medium": "Digital art",
+    "camera_angle": "The camera angle or perspective is the angle of the camera relative to the subject.",
+    "artist_style": "Greg Rutkowski",
+    "assembled_prompt": "The astronaut, Digital art, Greg Rutkowski, This image is a composite of a number of exposures taken at different times of day, with the camera set to ISO 1600, f/8, and a shutter speed of 1/250 sec, The camera angle or perspective is the angle of the camera relative to the subject"
+  },
+  "9338.png": {
+    "base_caption": "a colorful mouse with a rainbow colored body",
+    "subject": "A rainbow colored hamster",
+    "lighting": "I would describe it as soft natural light, dramatic studio light, golden hour, neon",
+    "medium": "Digital art",
+    "camera_angle": "It depends on the artist",
+    "artist_style": "This image is concept art by Greg Rutkowski",
+    "assembled_prompt": "A rainbow colored hamster, Digital art, This image is concept art by Greg Rutkowski, I would describe it as soft natural light, dramatic studio light, golden hour, neon, It depends on the artist"
+  }
+}
