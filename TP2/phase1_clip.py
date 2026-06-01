@@ -165,11 +165,9 @@ def score_candidates(
     ).to(device)
 
     with torch.no_grad():
-        image_features = model.get_image_features(pixel_values=inputs["pixel_values"])
-        text_features = model.get_text_features(
-            input_ids=inputs["input_ids"],
-            attention_mask=inputs["attention_mask"],
-        )
+        outputs = model(**inputs)
+        image_features = outputs.image_embeds
+        text_features = outputs.text_embeds
 
     image_features = F.normalize(image_features, dim=-1)
     text_features = F.normalize(text_features, dim=-1)
