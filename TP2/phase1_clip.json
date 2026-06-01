@@ -1,0 +1,410 @@
+{
+  "1159_25.png": {
+    "medium": {
+      "top1": "3D CGI render",
+      "top3": [
+        "3D CGI render",
+        "photorealistic render",
+        "photograph"
+      ],
+      "scores": {
+        "3D CGI render": 0.2457,
+        "photorealistic render": 0.2329,
+        "photograph": 0.1706
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "top3": [
+        "volumetric lighting",
+        "ambient occlusion lighting",
+        "studio lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.1984,
+        "ambient occlusion lighting": 0.1949,
+        "studio lighting": 0.1674
+      }
+    },
+    "camera_angle": {
+      "top1": "medium shot",
+      "top3": [
+        "medium shot",
+        "macro photography shot",
+        "close-up portrait shot"
+      ],
+      "scores": {
+        "medium shot": 0.1914,
+        "macro photography shot": 0.1674,
+        "close-up portrait shot": 0.1592
+      }
+    },
+    "artist_style": {
+      "top1": "hyperrealistic style",
+      "top3": [
+        "hyperrealistic style",
+        "by WLOP",
+        "painterly impressionist style"
+      ],
+      "scores": {
+        "hyperrealistic style": 0.1743,
+        "by WLOP": 0.1548,
+        "painterly impressionist style": 0.1402
+      }
+    },
+    "subject": {
+      "top1": "a food or drink item",
+      "top3": [
+        "a food or drink item",
+        "a still life",
+        "an abstract composition"
+      ],
+      "scores": {
+        "a food or drink item": 0.2058,
+        "a still life": 0.1967,
+        "an abstract composition": 0.1748
+      }
+    },
+    "assembled_prompt": "a food or drink item, 3D CGI render, hyperrealistic style, volumetric lighting, medium shot"
+  },
+  "1159_29.png": {
+    "medium": {
+      "top1": "photorealistic render",
+      "top3": [
+        "photorealistic render",
+        "3D CGI render",
+        "digital painting"
+      ],
+      "scores": {
+        "photorealistic render": 0.2151,
+        "3D CGI render": 0.1934,
+        "digital painting": 0.1808
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "top3": [
+        "volumetric lighting",
+        "dark dramatic shadows",
+        "rim lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.19,
+        "dark dramatic shadows": 0.1775,
+        "rim lighting": 0.1686
+      }
+    },
+    "camera_angle": {
+      "top1": "macro photography shot",
+      "top3": [
+        "macro photography shot",
+        "establishing wide shot",
+        "eye level shot"
+      ],
+      "scores": {
+        "macro photography shot": 0.1649,
+        "establishing wide shot": 0.1539,
+        "eye level shot": 0.1534
+      }
+    },
+    "artist_style": {
+      "top1": "hyperrealistic style",
+      "top3": [
+        "hyperrealistic style",
+        "painterly impressionist style",
+        "by Makoto Shinkai"
+      ],
+      "scores": {
+        "hyperrealistic style": 0.1912,
+        "painterly impressionist style": 0.1684,
+        "by Makoto Shinkai": 0.1607
+      }
+    },
+    "subject": {
+      "top1": "a natural environment",
+      "top3": [
+        "a natural environment",
+        "a landscape scene",
+        "an abstract composition"
+      ],
+      "scores": {
+        "a natural environment": 0.2011,
+        "a landscape scene": 0.18,
+        "an abstract composition": 0.1626
+      }
+    },
+    "assembled_prompt": "a natural environment, photorealistic render, hyperrealistic style, volumetric lighting, macro photography shot"
+  },
+  "1159_3.png": {
+    "medium": {
+      "top1": "anime illustration",
+      "top3": [
+        "anime illustration",
+        "fantasy illustration",
+        "concept art"
+      ],
+      "scores": {
+        "anime illustration": 0.2458,
+        "fantasy illustration": 0.2244,
+        "concept art": 0.2224
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "top3": [
+        "volumetric lighting",
+        "ambient occlusion lighting",
+        "bright even lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.2024,
+        "ambient occlusion lighting": 0.196,
+        "bright even lighting": 0.1939
+      }
+    },
+    "camera_angle": {
+      "top1": "medium shot",
+      "top3": [
+        "medium shot",
+        "full body shot",
+        "bird's eye view"
+      ],
+      "scores": {
+        "medium shot": 0.1666,
+        "full body shot": 0.158,
+        "bird's eye view": 0.1524
+      }
+    },
+    "artist_style": {
+      "top1": "by Ross Tran",
+      "top3": [
+        "by Ross Tran",
+        "anime style",
+        "by WLOP"
+      ],
+      "scores": {
+        "by Ross Tran": 0.2425,
+        "anime style": 0.2191,
+        "by WLOP": 0.2139
+      }
+    },
+    "subject": {
+      "top1": "an anime character",
+      "top3": [
+        "an anime character",
+        "a fantasy character in armour",
+        "a dragon"
+      ],
+      "scores": {
+        "an anime character": 0.2352,
+        "a fantasy character in armour": 0.2085,
+        "a dragon": 0.1824
+      }
+    },
+    "assembled_prompt": "an anime character, anime illustration, by Ross Tran, volumetric lighting, medium shot"
+  },
+  "1159_7.png": {
+    "medium": {
+      "top1": "3D CGI render",
+      "top3": [
+        "3D CGI render",
+        "photorealistic render",
+        "concept art"
+      ],
+      "scores": {
+        "3D CGI render": 0.2272,
+        "photorealistic render": 0.2229,
+        "concept art": 0.1873
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "top3": [
+        "volumetric lighting",
+        "ambient occlusion lighting",
+        "harsh directional lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.1817,
+        "ambient occlusion lighting": 0.168,
+        "harsh directional lighting": 0.1675
+      }
+    },
+    "camera_angle": {
+      "top1": "extreme close-up shot",
+      "top3": [
+        "extreme close-up shot",
+        "bird's eye view",
+        "macro photography shot"
+      ],
+      "scores": {
+        "extreme close-up shot": 0.1738,
+        "bird's eye view": 0.1712,
+        "macro photography shot": 0.1638
+      }
+    },
+    "artist_style": {
+      "top1": "hyperrealistic style",
+      "top3": [
+        "hyperrealistic style",
+        "sharp detailed fantasy art",
+        "sci-fi concept art style"
+      ],
+      "scores": {
+        "hyperrealistic style": 0.1891,
+        "sharp detailed fantasy art": 0.1609,
+        "sci-fi concept art style": 0.1539
+      }
+    },
+    "subject": {
+      "top1": "an animal",
+      "top3": [
+        "an animal",
+        "a creature or monster",
+        "an anime character"
+      ],
+      "scores": {
+        "an animal": 0.2052,
+        "a creature or monster": 0.1842,
+        "an anime character": 0.1818
+      }
+    },
+    "assembled_prompt": "an animal, 3D CGI render, hyperrealistic style, volumetric lighting, extreme close-up shot"
+  },
+  "7836.png": {
+    "medium": {
+      "top1": "concept art",
+      "top3": [
+        "concept art",
+        "digital art",
+        "digital painting"
+      ],
+      "scores": {
+        "concept art": 0.2203,
+        "digital art": 0.2048,
+        "digital painting": 0.198
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "top3": [
+        "volumetric lighting",
+        "iridescent lighting",
+        "dark dramatic shadows"
+      ],
+      "scores": {
+        "volumetric lighting": 0.197,
+        "iridescent lighting": 0.1846,
+        "dark dramatic shadows": 0.1823
+      }
+    },
+    "camera_angle": {
+      "top1": "eye level shot",
+      "top3": [
+        "eye level shot",
+        "establishing wide shot",
+        "low angle shot"
+      ],
+      "scores": {
+        "eye level shot": 0.1689,
+        "establishing wide shot": 0.1595,
+        "low angle shot": 0.1583
+      }
+    },
+    "artist_style": {
+      "top1": "sci-fi concept art style",
+      "top3": [
+        "sci-fi concept art style",
+        "by Ross Tran",
+        "by Charlie Bowater"
+      ],
+      "scores": {
+        "sci-fi concept art style": 0.225,
+        "by Ross Tran": 0.2086,
+        "by Charlie Bowater": 0.1931
+      }
+    },
+    "subject": {
+      "top1": "an astronaut or space explorer",
+      "top3": [
+        "an astronaut or space explorer",
+        "an abstract composition",
+        "a landscape scene"
+      ],
+      "scores": {
+        "an astronaut or space explorer": 0.2213,
+        "an abstract composition": 0.18,
+        "a landscape scene": 0.1719
+      }
+    },
+    "assembled_prompt": "an astronaut or space explorer, concept art, sci-fi concept art style, volumetric lighting, eye level shot"
+  },
+  "9338.png": {
+    "medium": {
+      "top1": "fantasy illustration",
+      "top3": [
+        "fantasy illustration",
+        "digital painting",
+        "digital art"
+      ],
+      "scores": {
+        "fantasy illustration": 0.2197,
+        "digital painting": 0.2112,
+        "digital art": 0.2068
+      }
+    },
+    "lighting": {
+      "top1": "iridescent lighting",
+      "top3": [
+        "iridescent lighting",
+        "soft natural lighting",
+        "bright even lighting"
+      ],
+      "scores": {
+        "iridescent lighting": 0.2099,
+        "soft natural lighting": 0.1783,
+        "bright even lighting": 0.1675
+      }
+    },
+    "camera_angle": {
+      "top1": "full body shot",
+      "top3": [
+        "full body shot",
+        "medium shot",
+        "extreme close-up shot"
+      ],
+      "scores": {
+        "full body shot": 0.15,
+        "medium shot": 0.1425,
+        "extreme close-up shot": 0.1361
+      }
+    },
+    "artist_style": {
+      "top1": "sharp detailed fantasy art",
+      "top3": [
+        "sharp detailed fantasy art",
+        "painterly impressionist style",
+        "by Ross Tran"
+      ],
+      "scores": {
+        "sharp detailed fantasy art": 0.1978,
+        "painterly impressionist style": 0.1924,
+        "by Ross Tran": 0.1918
+      }
+    },
+    "subject": {
+      "top1": "a mythical creature",
+      "top3": [
+        "a mythical creature",
+        "an animal",
+        "a creature or monster"
+      ],
+      "scores": {
+        "a mythical creature": 0.212,
+        "an animal": 0.2015,
+        "a creature or monster": 0.1979
+      }
+    },
+    "assembled_prompt": "a mythical creature, fantasy illustration, sharp detailed fantasy art, iridescent lighting, full body shot"
+  }
+}
