@@ -2,18 +2,34 @@
 Phase 3 – Render & Score: generate images for all Phase 2 candidates and rank them.
 
 For each target image, renders every candidate prompt with the fixed seed from
-the filename, scores it against the target (CLIP sim, LPIPS, pixel RMSE),
-and saves the ranked results.
+the filename, scores it against the target (CLIP sim, LPIPS, pixel MSE/RMSE),
+and ranks the candidates under four criteria:
+
+    rank_clip       – by CLIP image-image similarity   (higher better)
+    rank_lpips      – by LPIPS perceptual distance      (lower  better)
+    rank_mse        – by pixel MSE                       (lower  better)
+    rank_composite  – Borda: average of the three ranks (lower  better)
+
+The submitted top-3 per image uses rank_composite. The per-metric rankings are
+kept too, so the report can show where the metrics agree / disagree.
+
+Ranking by averaged ranks (Borda) needs no normalisation: each metric only
+contributes an order, so the wildly different scales (CLIP ~0.5-0.95, LPIPS
+~0.1-0.7, MSE ~0-20000) never get mixed as raw values.
 
 Input:  phase2_candidates.json, target images in TARGET_DIR
-Output: phase3_results.json  (per image: candidates sorted by CLIP sim desc)
-        Rendered images saved under outputs/phase3/<image_stem>/candidate_NNN.png
+Output: phase3_results.json   – every candidate, all metrics + all ranks
+        phase3_top3.json/.csv – top-3 per image, deliverable format
+        Renders under outputs/phase3/<image_stem>/candidate_NNN.png
 
-Tip: already-rendered candidates are skipped (remove the file to re-render).
+Tip: already-rendered candidates are skipped (delete the PNG to re-render).
 """
 
+import csv
 import json
 import re
+import shutil
+import statistics
 from pathlib import Path
 
 import torch
@@ -29,7 +45,12 @@ from evaluation import evaluate_candidate
 PHASE2_CANDIDATES = Path("phase2_candidates.json")
 TARGET_DIR = Path("statement/TP2-students/students/tp2-chosen")
 OUTPUT_DIR = Path("outputs/phase3")
+TOP3_DIR = Path("outputs/phase3_top3")   # tidy copy of the winning renders
 RESULTS_FILE = Path("phase3_results.json")
+TOP3_JSON = Path("phase3_top3.json")
+TOP3_CSV = Path("phase3_top3.csv")
+
+TOP_K = 3  # prompts submitted per image
 
 MODEL_ID = "SimianLuo/LCM_Dreamshaper_v7"
 NUM_INFERENCE_STEPS = 8
@@ -88,6 +109,56 @@ def render(prompt: str, seed: int, pipe, device: str) -> Image.Image:
     ).images[0]
 
 
+# ── Ranking ───────────────────────────────────────────────────────────────────
+
+def attach_ranks(rows: list[dict]) -> list[dict]:
+    """Add rank_clip / rank_lpips / rank_mse / rank_composite, then sort by
+    composite. Best rank = 1. Composite = mean of the three per-metric ranks."""
+    n = len(rows)
+
+    order_clip  = sorted(range(n), key=lambda i: rows[i]["clip_similarity"], reverse=True)
+    order_lpips = sorted(range(n), key=lambda i: rows[i]["lpips"])
+    order_mse   = sorted(range(n), key=lambda i: rows[i]["pixel_mse"])
+
+    rank_clip  = {idx: r + 1 for r, idx in enumerate(order_clip)}
+    rank_lpips = {idx: r + 1 for r, idx in enumerate(order_lpips)}
+    rank_mse   = {idx: r + 1 for r, idx in enumerate(order_mse)}
+
+    for i, row in enumerate(rows):
+        row["rank_clip"]  = rank_clip[i]
+        row["rank_lpips"] = rank_lpips[i]
+        row["rank_mse"]   = rank_mse[i]
+        row["rank_composite"] = round(
+            (rank_clip[i] + rank_lpips[i] + rank_mse[i]) / 3, 3
+        )
+
+    rows.sort(key=lambda r: (r["rank_composite"], r["rank_clip"]))
+    return rows
+
+
+# ── Reporting ─────────────────────────────────────────────────────────────────
+
+def mean_std(values: list[float]) -> tuple[float, float]:
+    if not values:
+        return 0.0, 0.0
+    if len(values) == 1:
+        return values[0], 0.0
+    return statistics.mean(values), statistics.stdev(values)
+
+
+def print_aggregate(label: str, rows: list[dict]) -> None:
+    clip = [r["clip_similarity"] for r in rows]
+    lp   = [r["lpips"] for r in rows]
+    mse  = [r["pixel_mse"] for r in rows]
+    cm, cs = mean_std(clip)
+    lm, ls = mean_std(lp)
+    mm, ms = mean_std(mse)
+    print(f"  {label}  (n={len(rows)})")
+    print(f"    CLIP  mean={cm:.4f}  std={cs:.4f}   (higher better)")
+    print(f"    LPIPS mean={lm:.4f}  std={ls:.4f}   (lower better)")
+    print(f"    MSE   mean={mm:.4f}  std={ms:.4f}   (lower better)")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -119,49 +190,73 @@ def main():
         rows = []
         for i, prompt in enumerate(tqdm(prompts, desc=image_name), start=1):
             img_path = out_dir / f"candidate_{i:03d}.png"
-
             if not img_path.exists():
-                generated = render(prompt, seed, pipe, device)
-                generated.save(img_path)
+                render(prompt, seed, pipe, device).save(img_path)
 
             metrics = evaluate_candidate(target_path, img_path)
             rows.append({
-                "image": image_name,
+                "target": str(target_path),
+                "target_name": image_name,
+                "render_seed": seed,
                 "candidate_index": i,
                 "prompt": prompt,
                 "render": str(img_path),
                 **metrics,
             })
 
-        rows.sort(key=lambda r: r["clip_similarity"], reverse=True)
+        attach_ranks(rows)
         all_results[image_name] = rows
 
-        print(f"  Top-3 by CLIP similarity:")
-        for r in rows[:3]:
+        print("  Top-3 by composite rank:")
+        for r in rows[:TOP_K]:
             print(
-                f"    [{r['candidate_index']:3d}]"
-                f"  CLIP={r['clip_similarity']:.4f}"
-                f"  LPIPS={r['lpips']:.4f}"
-                f"  RMSE={r['pixel_rmse']:.1f}"
-                f"  | {r['prompt']}"
+                f"    [{r['candidate_index']:3d}] comp={r['rank_composite']:.2f}"
+                f"  CLIP={r['clip_similarity']:.4f}(#{r['rank_clip']})"
+                f"  LPIPS={r['lpips']:.4f}(#{r['rank_lpips']})"
+                f"  MSE={r['pixel_mse']:.4f}(#{r['rank_mse']})"
             )
 
+    # ── Persist full results ──────────────────────────────────────────────────
     RESULTS_FILE.write_text(json.dumps(all_results, indent=2, ensure_ascii=False))
-    print(f"\nSaved all results to {RESULTS_FILE}")
+    print(f"\nSaved all candidates + ranks to {RESULTS_FILE}")
 
-    print("\n" + "=" * 80)
-    print("FINAL TOP-3 PROMPTS PER IMAGE (by CLIP similarity)")
-    print("=" * 80)
+    # ── Deliverable: top-3 per image ──────────────────────────────────────────
+    TOP3_DIR.mkdir(parents=True, exist_ok=True)
+    top3_rows: list[dict] = []
     for image_name, rows in all_results.items():
-        print(f"\n{image_name}:")
-        for r in rows[:3]:
-            print(
-                f"  [{r['candidate_index']:3d}]"
-                f"  CLIP={r['clip_similarity']:.4f}"
-                f"  LPIPS={r['lpips']:.4f}"
-                f"  RMSE={r['pixel_rmse']:.1f}"
-                f"\n        {r['prompt']}"
-            )
+        stem = Path(image_name).stem
+        for rank, r in enumerate(rows[:TOP_K], start=1):
+            # Copy the winning render into a tidy, self-documenting filename.
+            dest = TOP3_DIR / f"{stem}_rank{rank}_candidate{r['candidate_index']:03d}.png"
+            shutil.copyfile(r["render"], dest)
+            top3_rows.append({
+                **r,
+                "submission_rank": rank,
+                "top3_render": str(dest),
+            })
+
+    TOP3_JSON.write_text(json.dumps(top3_rows, indent=2, ensure_ascii=False))
+
+    fields = [
+        "target", "target_name", "render_seed", "submission_rank",
+        "candidate_index", "prompt", "render", "top3_render",
+        "clip_similarity", "lpips", "pixel_mse", "pixel_rmse",
+        "rank_clip", "rank_lpips", "rank_mse", "rank_composite",
+    ]
+    with TOP3_CSV.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(top3_rows)
+    print(f"Saved top-{TOP_K} deliverable to {TOP3_JSON} and {TOP3_CSV}")
+    print(f"Copied {len(top3_rows)} winning renders to {TOP3_DIR}/")
+
+    # ── Aggregate stats across the test set ───────────────────────────────────
+    best1 = [rows[0] for rows in all_results.values()]
+    print("\n" + "=" * 70)
+    print("AGGREGATE METRICS ACROSS THE TEST SET")
+    print("=" * 70)
+    print_aggregate("Best prompt per image (top-1)", best1)
+    print_aggregate(f"Submitted prompts (top-{TOP_K})", top3_rows)
 
 
 if __name__ == "__main__":

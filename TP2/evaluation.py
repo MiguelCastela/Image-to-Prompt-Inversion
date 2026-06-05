@@ -83,12 +83,23 @@ def compute_lpips(image_a: Image.Image, image_b: Image.Image) -> float:
     return float(dist)
 
 
-# ── Pixel RMSE ────────────────────────────────────────────────────────────────
+# ── Pixel MSE / RMSE ──────────────────────────────────────────────────────────
+
+def compute_pixel_mse(image_a: Image.Image, image_b: Image.Image) -> float:
+    """Pixel MSE on [0, 1]-normalised pixels. Lower is better. (Mandatory metric.)
+
+    Range ~[0, 1]. Normalising by 255 only rescales by a constant, so ranking is
+    identical to the [0, 255] convention — it just reads nicer in the report.
+    """
+    a = np.array(image_a.convert("RGB"), dtype=np.float32) / 255.0
+    b = np.array(image_b.convert("RGB"), dtype=np.float32) / 255.0
+    return float(np.mean((a - b) ** 2))
+
 
 def compute_pixel_rmse(image_a: Image.Image, image_b: Image.Image) -> float:
-    """Pixel RMSE in [0, 255] range. Lower is better."""
-    a = np.array(image_a.convert("RGB"), dtype=np.float32)
-    b = np.array(image_b.convert("RGB"), dtype=np.float32)
+    """Pixel RMSE on [0, 1]-normalised pixels. Lower is better. (sqrt of MSE.)"""
+    a = np.array(image_a.convert("RGB"), dtype=np.float32) / 255.0
+    b = np.array(image_b.convert("RGB"), dtype=np.float32) / 255.0
     return float(np.sqrt(np.mean((a - b) ** 2)))
 
 
@@ -101,6 +112,7 @@ def evaluate_candidate(target_path, generated_path) -> dict:
     return {
         "clip_similarity": compute_clip_similarity(target, generated),
         "lpips": compute_lpips(target, generated),
+        "pixel_mse": compute_pixel_mse(target, generated),
         "pixel_rmse": compute_pixel_rmse(target, generated),
     }
 
