@@ -30,6 +30,7 @@ import json
 import re
 import shutil
 import statistics
+from datetime import datetime, timezone
 from pathlib import Path
 
 import torch
@@ -49,6 +50,7 @@ TOP3_DIR = Path("outputs/phase3_top3")   # tidy copy of the winning renders
 RESULTS_FILE = Path("phase3_results.json")
 TOP3_JSON = Path("phase3_top3.json")
 TOP3_CSV = Path("phase3_top3.csv")
+SUMMARY_FILE = Path("phase3_summary.json")   # aggregate stats + metadata for report
 
 TOP_K = 3  # prompts submitted per image
 
@@ -101,7 +103,9 @@ def render(prompt: str, seed: int, pipe, device: str) -> Image.Image:
         prompt=prompt,
         num_inference_steps=NUM_INFERENCE_STEPS,
         guidance_scale=GUIDANCE_SCALE,
-        lcm_origin_steps=LCM_ORIGIN_STEPS,
+        # diffusers renamed lcm_origin_steps -> original_inference_steps; the old
+        # name is silently swallowed by **kwargs (i.e. ignored), so use the new one.
+        original_inference_steps=LCM_ORIGIN_STEPS,
         width=WIDTH,
         height=HEIGHT,
         output_type="pil",
@@ -157,6 +161,112 @@ def print_aggregate(label: str, rows: list[dict]) -> None:
     print(f"    CLIP  mean={cm:.4f}  std={cs:.4f}   (higher better)")
     print(f"    LPIPS mean={lm:.4f}  std={ls:.4f}   (lower better)")
     print(f"    MSE   mean={mm:.4f}  std={ms:.4f}   (lower better)")
+
+
+# ── Summary (saved for the report) ──────────────────────────────────────────────
+
+def _stats(values: list[float]) -> dict:
+    m, s = mean_std(values)
+    return {
+        "mean": round(m, 6),
+        "std": round(s, 6),
+        "min": round(min(values), 6) if values else 0.0,
+        "max": round(max(values), 6) if values else 0.0,
+        "n": len(values),
+    }
+
+
+def _metric_block(rows: list[dict]) -> dict:
+    return {
+        "clip_similarity": _stats([r["clip_similarity"] for r in rows]),
+        "lpips": _stats([r["lpips"] for r in rows]),
+        "pixel_mse": _stats([r["pixel_mse"] for r in rows]),
+        "pixel_rmse": _stats([r["pixel_rmse"] for r in rows]),
+    }
+
+
+def _spearman(a: list[float], b: list[float]) -> float:
+    """Rank correlation without scipy: Pearson on the rank-transformed values."""
+    n = len(a)
+    if n < 2:
+        return 0.0
+
+    def ranks(x):
+        order = sorted(range(n), key=lambda i: x[i])
+        rk = [0.0] * n
+        for pos, idx in enumerate(order):
+            rk[idx] = pos + 1
+        return rk
+
+    ra, rb = ranks(a), ranks(b)
+    ma, mb = statistics.mean(ra), statistics.mean(rb)
+    cov = sum((ra[i] - ma) * (rb[i] - mb) for i in range(n))
+    va = sum((ra[i] - ma) ** 2 for i in range(n))
+    vb = sum((rb[i] - mb) ** 2 for i in range(n))
+    return round(cov / (va * vb) ** 0.5, 4) if va and vb else 0.0
+
+
+def build_summary(
+    all_results: dict[str, list[dict]],
+    top3_rows: list[dict],
+    device: str,
+    dtype: str,
+) -> dict:
+    all_rows = [r for rows in all_results.values() for r in rows]
+    best1 = [rows[0] for rows in all_results.values()]
+
+    # Metric agreement, pooled over every candidate (supports the "where the
+    # metrics agree / disagree" discussion). Sign note: CLIP is higher-better,
+    # LPIPS/MSE lower-better, so clip-vs-{lpips,mse} is expected negative.
+    clip = [r["clip_similarity"] for r in all_rows]
+    lp = [r["lpips"] for r in all_rows]
+    mse = [r["pixel_mse"] for r in all_rows]
+    correlations = {
+        "clip_vs_lpips": _spearman(clip, lp),
+        "clip_vs_mse": _spearman(clip, mse),
+        "lpips_vs_mse": _spearman(lp, mse),
+    }
+
+    per_image = {}
+    for name, rows in all_results.items():
+        top = rows[0]
+        per_image[name] = {
+            "render_seed": top["render_seed"],
+            "n_candidates": len(rows),
+            "best_candidate_index": top["candidate_index"],
+            "best_prompt": top["prompt"],
+            "best_clip_similarity": round(top["clip_similarity"], 6),
+            "best_lpips": round(top["lpips"], 6),
+            "best_pixel_mse": round(top["pixel_mse"], 6),
+            "metrics": _metric_block(rows),
+        }
+
+    return {
+        "metadata": {
+            "model_id": MODEL_ID,
+            "num_inference_steps": NUM_INFERENCE_STEPS,
+            "guidance_scale": GUIDANCE_SCALE,
+            "original_inference_steps": LCM_ORIGIN_STEPS,
+            "width": WIDTH,
+            "height": HEIGHT,
+            "device": device,
+            "dtype": dtype,
+            "seed_policy": "leading digits of target filename (fallback 2026)",
+            "top_k": TOP_K,
+            "n_images": len(all_results),
+            "n_candidates_total": len(all_rows),
+            "metrics": ["clip_similarity", "lpips", "pixel_mse", "pixel_rmse"],
+            "ranking": "composite = mean(rank_clip, rank_lpips, rank_mse)",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        "aggregate": {
+            "all_candidates": _metric_block(all_rows),
+            "best_per_image_top1": _metric_block(best1),
+            "submitted_top3": _metric_block(top3_rows),
+        },
+        "metric_rank_correlations_spearman": correlations,
+        "per_image": per_image,
+    }
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -257,6 +367,12 @@ def main():
     print("=" * 70)
     print_aggregate("Best prompt per image (top-1)", best1)
     print_aggregate(f"Submitted prompts (top-{TOP_K})", top3_rows)
+
+    # ── Persist the aggregate stats + metadata for the report ──────────────────
+    dtype = "float16" if device == "cuda" else "float32"
+    summary = build_summary(all_results, top3_rows, device, dtype)
+    SUMMARY_FILE.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
+    print(f"Saved report summary (aggregates, correlations, metadata) to {SUMMARY_FILE}")
 
 
 if __name__ == "__main__":

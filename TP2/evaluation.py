@@ -46,6 +46,10 @@ def compute_clip_similarity(image_a: Image.Image, image_b: Image.Image) -> float
     inputs = processor(images=[image_a, image_b], return_tensors="pt", padding=True)
     with torch.no_grad():
         features = model.get_image_features(**inputs)
+    # transformers >=5 returns BaseModelOutputWithPooling here; the projected
+    # embedding lives in .pooler_output. Older versions returned the tensor.
+    if hasattr(features, "pooler_output"):
+        features = features.pooler_output
     features = features / features.norm(dim=-1, keepdim=True)
     return float(features[0] @ features[1])
 
