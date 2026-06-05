@@ -103,6 +103,12 @@ def load_clip(device: str):
     return model, processor
 
 
+def _as_features(out) -> torch.Tensor:
+    """transformers >=5 returns BaseModelOutputWithPooling from get_*_features;
+    older versions returned the projected tensor directly. Handle both."""
+    return out.pooler_output if hasattr(out, "pooler_output") else out
+
+
 def encode_texts(
     model, processor, texts: list[str], device: str
 ) -> torch.Tensor:
@@ -114,7 +120,7 @@ def encode_texts(
             text=batch, return_tensors="pt", padding=True, truncation=True
         ).to(device)
         with torch.no_grad():
-            feats = model.get_text_features(**inputs)
+            feats = _as_features(model.get_text_features(**inputs))
         all_feats.append(F.normalize(feats, dim=-1).cpu())
     return torch.cat(all_feats, dim=0)
 
@@ -125,7 +131,7 @@ def encode_image(
     """Return normalised image embedding, shape (1, D), on CPU."""
     inputs = processor(images=image, return_tensors="pt").to(device)
     with torch.no_grad():
-        feats = model.get_image_features(**inputs)
+        feats = _as_features(model.get_image_features(**inputs))
     return F.normalize(feats, dim=-1).cpu()
 
 
