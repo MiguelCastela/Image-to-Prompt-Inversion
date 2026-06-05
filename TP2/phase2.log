@@ -1,0 +1,101 @@
+Skipping import of cpp extensions due to incompatible torch version. Please upgrade to torch >= 2.11.0 (found 2.10.0+cu128).
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading Qwen/Qwen2.5-VL-7B-Instruct-AWQ ...
+
+WARN  Python GIL is enabled: Multi-gpu quant acceleration for MoE models is sub-optimal and multi-core accelerated cpu packing is also disabled. We recommend Python >= 3.13.3t with Pytorch > 2.8 for mult-gpu quantization and multi-cpu packing with env `PYTHON_GIL=0`.
+INFO  ENV: Auto setting PYTORCH_ALLOC_CONF='expandable_segments:True,max_split_size_mb:256,garbage_collection_threshold:0.7' for memory saving.
+INFO  ENV: Auto setting CUDA_DEVICE_ORDER=PCI_BUS_ID for correctness.          
+INFO  
+
+┌─────────────┐    ┌────────────────────────┐    ┌────────────┐    ┌─────────┐
+│ GPT-QModel  │ -> │ ▓▓▓▓▓▓▓▓▓▓▓▓ 16bit     │ -> │ ▒▒▒▒ 8bit  │ -> │ ░░ 4bit │
+└─────────────┘    └────────────────────────┘    └────────────┘    └─────────┘
+GPT-QModel   : 7.0.0+b7d1797
+Transformers : 5.10.2
+Torch        : 2.10.0+cu128
+Triton       : 3.6.0
+INFO  Kernel: selected: `AwqGEMMTritonLinear`                                  
+Loading weights:   0%|          | 0/1121 [00:00<?, ?it/s]Loading weights:  10%|▉         | 108/1121 [00:00<00:00, 1029.31it/s]Loading weights:  19%|█▉        | 215/1121 [00:00<00:00, 1044.48it/s]Loading weights:  29%|██▊       | 322/1121 [00:00<00:00, 1040.03it/s]Loading weights:  38%|███▊      | 427/1121 [00:00<00:00, 1041.74it/s]Loading weights:  48%|████▊     | 537/1121 [00:00<00:00, 1062.08it/s]Loading weights:  57%|█████▋    | 644/1121 [00:00<00:00, 1058.06it/s]Loading weights:  69%|██████▉   | 771/1121 [00:00<00:00, 1118.41it/s]Loading weights:  82%|████████▏ | 917/1121 [00:00<00:00, 1223.04it/s]Loading weights:  96%|█████████▌| 1077/1121 [00:00<00:00, 1333.82it/s]Loading weights: 100%|██████████| 1121/1121 [00:00<00:00, 1176.35it/s]
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/generation_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/generation_config.json "HTTP/1.1 200 OK"
+INFO  gc.collect() reclaimed 214 objects in 0.215s                             
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/chat_template.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/chat_template.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/config.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/tokenizer_config.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/video_preprocessor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/video_preprocessor_config.json "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
+Model loaded.
+
+
+── 1159_25.png ──
+  Generated 30 variations. First 3:
+    1. Orange juice, photorealistic, 3D render, studio lighting, close-up portrait shot, by Alphonse Mucha
+    2. Orange juice, best quality, digital painting, volumetric lighting, wide angle, by Greg Rutkowski
+    3. Orange juice, masterpiece, concept art, dramatic cinematic lighting, full body, by Makoto Shinkai
+    ... (27 more)
+
+── 1159_29.png ──
+  Generated 30 variations. First 3:
+    1. palm tree, best quality, highly detailed, sharp focus, 8k, artgerm, digital painting, volumetric lighting, close-up portrait, rule of thirds
+    2. palm tree, masterpiece, best quality, highly detailed, sharp focus, 8k, Greg Rutkowski, concept art, dramatic cinematic lighting, medium shot, rule of thirds
+    3. palm tree, masterpiece, best quality, highly detailed, sharp focus, 8k, WLOP, 3D render, ambient occlusion, full body, rule of thirds
+    ... (27 more)
+
+── 1159_3.png ──
+  Generated 30 variations. First 3:
+    1. female character with fire coming out of her hands, masterpiece, best quality, highly detailed, sharp focus, 8k, Ross Tran, digital painting, volumetric lighting, close-up portrait, rule of thirds
+    2. female character with fire coming out of her hands, masterpiece, best quality, highly detailed, sharp focus, 8k, Ross Tran, digital painting, studio lighting, medium shot, rule of thirds
+    3. female character with fire coming out of her hands, masterpiece, best quality, highly detailed, sharp focus, 8k, Ross Tran, digital painting, dramatic cinematic lighting, full body, rule of thirds
+    ... (27 more)
+
+── 1159_7.png ──
+  Generated 30 variations. First 3:
+    1. hedgehog, 3D render, best quality, highly detailed, sharp focus, 8k, artist_style: Greg Rutkowski, medium: digital painting, lighting: dramatic cinematic lighting, composition: close-up portrait
+    2. hedgehog, 3D render, best quality, highly detailed, sharp focus, 8k, artist_style: WLOP, medium: concept art, lighting: volumetric lighting, composition: medium shot
+    3. hedgehog, 3D render, best quality, highly detailed, sharp focus, 8k, artist_style: Alphonse Mucha, medium: anime, lighting: golden hour, composition: full body
+    ... (27 more)
+
+── 7836.png ──
+  Generated 30 variations. First 3:
+    1. astronaut, space art, concept art, volumetric lighting, dramatic cinematic lighting, full body shot, rule of thirds, best quality, highly detailed, sharp focus, 8k, Alphonse Mucha
+    2. astronaut, space art, concept art, volumetric lighting, dramatic cinematic lighting, full body shot, rule of thirds, best quality, highly detailed, sharp focus, 8k, Makoto Shinkai
+    3. astronaut, space art, concept art, volumetric lighting, dramatic cinematic lighting, full body shot, rule of thirds, best quality, highly detailed, sharp focus, 8k, Ross Tran
+    ... (27 more)
+
+── 9338.png ──
+  Generated 30 variations. First 3:
+    1. masterpiece, best quality, highly detailed, sharp focus, 8k, whimsical demon with rainbow fur, digital painting, artgerm, full body, dramatic cinematic lighting, rule of thirds
+    2. masterpiece, best quality, highly detailed, sharp focus, 8k, whimsical demon with rainbow fur, digital painting, Greg Rutkowski, full body, dramatic cinematic lighting, rule of thirds
+    3. masterpiece, best quality, highly detailed, sharp focus, 8k, whimsical demon with rainbow fur, digital painting, WLOP, full body, dramatic cinematic lighting, rule of thirds
+    ... (27 more)
+
+Saved 180 candidates across 6 images to phase2_candidates.json
+Saved full report record to phase2_full.json

@@ -16,6 +16,7 @@ Output: phase2_candidates.json  (image_name -> list[str])
 import base64
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -24,12 +25,15 @@ from pathlib import Path
 PHASE1_CLIP     = Path("phase1_clip.json")
 PHASE1_CAPTIONS = Path("phase1_captions.json")
 TARGET_DIR      = Path("statement/TP2-students/students/tp2-chosen")
-OUTPUT_FILE     = Path("phase2_candidates.json")
+OUTPUT_FILE     = Path("phase2_candidates.json")   # pipeline input for phase 3
+FULL_OUTPUT_FILE = Path("phase2_full.json")        # rich record for the report
 
 BACKEND         = "qwen"    # "qwen" | "claude"
 QWEN_MODEL_ID   = "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
 CLAUDE_MODEL_ID = "claude-opus-4-8"
 N_VARIATIONS    = 30
+MAX_NEW_TOKENS  = 4096
+DO_SAMPLE       = False
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 CLIP_COMPONENTS  = ["medium", "artist_style", "flavor", "lighting", "camera_angle"]
@@ -88,13 +92,28 @@ def build_text_context(clip: dict, blip_caption: str, blip_subject: str) -> str:
     )
 
 
+# The VLM sometimes echoes the analysis field labels into a prompt, e.g.
+# "..., artist_style: Greg Rutkowski, medium: digital painting, lighting: ...".
+# Strip those leading "label:" prefixes per comma-token so the prompt keeps only
+# the value ("Greg Rutkowski", "digital painting", ...) as clean SD tokens.
+_LABEL_RE = re.compile(
+    r"^(?:artist_style|camera_angle|composition|lighting|medium|subject|flavor|style|artist)\s*:\s*",
+    re.IGNORECASE,
+)
+
+
+def clean_prompt(prompt: str) -> str:
+    tokens = (_LABEL_RE.sub("", t.strip()) for t in prompt.split(","))
+    return ", ".join(t for t in (tok.strip() for tok in tokens) if t)
+
+
 def parse_numbered_list(text: str, n: int) -> list[str]:
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     prompts = []
     for line in lines:
         cleaned = re.sub(r"^\d+[\.\)]\s*", "", line).strip()
         if cleaned:
-            prompts.append(cleaned)
+            prompts.append(clean_prompt(cleaned))
     return prompts[:n]
 
 
@@ -102,12 +121,45 @@ def parse_numbered_list(text: str, n: int) -> list[str]:
 
 def load_qwen(model_id: str):
     import torch
-    from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+    from transformers import (
+        AutoConfig,
+        AutoProcessor,
+        Qwen2_5_VLForConditionalGeneration,
+    )
+    from transformers.quantizers.quantizer_awq import AwqQuantizer
+
+    # AwqQuantizer.update_dtype force-downcasts bf16 -> fp16 as a guard for the
+    # CUDA AWQ kernels. We use the Triton kernel, which DOES support bf16 and
+    # emits bf16 — the downcast leaves lm_head in fp16 and causes a
+    # "BFloat16 != Half" mismatch. Keep the requested dtype as-is.
+    AwqQuantizer.update_dtype = lambda self, dtype: dtype
 
     print(f"Loading {model_id} ...")
+    # Two fixes to the model's AWQ config for transformers 5.x + gptqmodel:
+    #
+    # 1. modules_to_not_convert: the checkpoint leaves the vision tower in fp16,
+    #    but its exclusion pattern is "visual" while the layers are actually named
+    #    "model.visual.*". transformers' matcher anchors at the start (re.match),
+    #    so "visual" never matches and it tries to AWQ-quantize the vision MLP
+    #    (intermediate_size 3420, not divisible by group_size 128 → crash).
+    #    Use "model.visual" so the whole vision tower stays fp16.
+    #
+    # 2. backend: default "auto" picks Marlin (needs out_features %% 64); the plain
+    #    "gemm" kernel JIT-builds a CUDA C++ extension needing nvcc >= 12.8 for
+    #    Blackwell (this box has nvcc 12.0). "gemm_triton" handles the language
+    #    layers and compiles via Triton (no nvcc).
+    config = AutoConfig.from_pretrained(model_id)
+    if getattr(config, "quantization_config", None) is not None:
+        config.quantization_config["backend"] = "gemm_triton"
+        config.quantization_config["modules_to_not_convert"] = ["model.visual"]
+
+    # Use bfloat16 (Qwen2.5-VL's native dtype). The Triton AWQ kernel dequantizes
+    # to bf16, so the non-quantized layers (lm_head, norms, vision) must also be
+    # bf16 — forcing fp16 causes a "BFloat16 != Half" mismatch at lm_head.
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_id,
-        dtype=torch.float16,
+        config=config,
+        dtype=torch.bfloat16,
         device_map="auto",
     )
     processor = AutoProcessor.from_pretrained(model_id)
@@ -118,7 +170,7 @@ def load_qwen(model_id: str):
 
 def generate_qwen(
     model, processor, image_path: Path, context: str, n: int
-) -> list[str]:
+) -> tuple[list[str], str]:
     import torch
     from qwen_vl_utils import process_vision_info
 
@@ -149,11 +201,13 @@ def generate_qwen(
     ).to(model.device)
 
     with torch.no_grad():
-        generated_ids = model.generate(**inputs, max_new_tokens=4096, do_sample=False)
+        generated_ids = model.generate(
+            **inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=DO_SAMPLE
+        )
 
     trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated_ids)]
     output = processor.batch_decode(trimmed, skip_special_tokens=True)[0]
-    return parse_numbered_list(output, n)
+    return parse_numbered_list(output, n), output
 
 
 # ── Claude backend ────────────────────────────────────────────────────────────
@@ -165,7 +219,7 @@ def load_claude():
 
 def generate_claude(
     client, image_path: Path, context: str, n: int
-) -> list[str]:
+) -> tuple[list[str], str]:
     ext = image_path.suffix.lower().lstrip(".")
     media_type = f"image/{'jpeg' if ext == 'jpg' else ext}"
     img_data = base64.standard_b64encode(image_path.read_bytes()).decode()
@@ -192,7 +246,8 @@ def generate_claude(
             ],
         }],
     )
-    return parse_numbered_list(response.content[0].text, n)
+    raw = response.content[0].text
+    return parse_numbered_list(raw, n), raw
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -214,7 +269,11 @@ def main():
         model = processor = None
         client = load_claude()
 
-    results: dict[str, list[str]] = {}
+    model_id = QWEN_MODEL_ID if BACKEND == "qwen" else CLAUDE_MODEL_ID
+    system_prompt = SYSTEM_PROMPT.format(n=N_VARIATIONS)
+
+    results: dict[str, list[str]] = {}            # phase-3 input (name -> prompts)
+    full: dict[str, dict] = {}                     # rich per-image record for report
 
     for image_name in clip_data:
         target_path = target_by_name.get(image_name)
@@ -230,11 +289,23 @@ def main():
         )
 
         if BACKEND == "qwen":
-            variations = generate_qwen(model, processor, target_path, context, N_VARIATIONS)
+            variations, raw_output = generate_qwen(
+                model, processor, target_path, context, N_VARIATIONS
+            )
         else:
-            variations = generate_claude(client, target_path, context, N_VARIATIONS)
+            variations, raw_output = generate_claude(
+                client, target_path, context, N_VARIATIONS
+            )
 
         results[image_name] = variations
+        full[image_name] = {
+            "image_path": str(target_path),
+            "context": context,
+            "raw_output": raw_output,
+            "variations": variations,
+            "n_parsed": len(variations),
+            "n_requested": N_VARIATIONS,
+        }
         print(f"  Generated {len(variations)} variations. First 3:")
         for i, v in enumerate(variations[:3], 1):
             print(f"    {i}. {v}")
@@ -244,6 +315,26 @@ def main():
     OUTPUT_FILE.write_text(json.dumps(results, indent=2, ensure_ascii=False))
     total = sum(len(v) for v in results.values())
     print(f"\nSaved {total} candidates across {len(results)} images to {OUTPUT_FILE}")
+
+    full_record = {
+        "metadata": {
+            "backend": BACKEND,
+            "model_id": model_id,
+            "n_variations": N_VARIATIONS,
+            "max_new_tokens": MAX_NEW_TOKENS,
+            "do_sample": DO_SAMPLE,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "system_prompt": system_prompt,
+            "clip_components": CLIP_COMPONENTS,
+            "n_images": len(full),
+            "n_total_candidates": total,
+        },
+        "images": full,
+    }
+    FULL_OUTPUT_FILE.write_text(
+        json.dumps(full_record, indent=2, ensure_ascii=False)
+    )
+    print(f"Saved full report record to {FULL_OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
