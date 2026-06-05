@@ -13,3 +13,5 @@ tqdm==4.67.3
 ipython==9.11.0
 anthropic>=0.40.0
 clip-interrogator
+autoawq
+qwen-vl-utils
