@@ -1,0 +1,357 @@
+{
+  "metadata": {
+    "model_id": "SimianLuo/LCM_Dreamshaper_v7",
+    "num_inference_steps": 8,
+    "guidance_scale": 8.0,
+    "original_inference_steps": 50,
+    "width": 768,
+    "height": 768,
+    "device": "cuda",
+    "dtype": "float16",
+    "seed_policy": "leading digits of target filename (fallback 2026)",
+    "top_k": 3,
+    "n_images": 6,
+    "n_candidates_total": 180,
+    "metrics": [
+      "clip_similarity",
+      "lpips",
+      "pixel_mse",
+      "pixel_rmse"
+    ],
+    "ranking": "composite = mean(rank_clip, rank_lpips, rank_mse)",
+    "generated_at": "2026-06-05T23:52:08.939002+00:00"
+  },
+  "aggregate": {
+    "all_candidates": {
+      "clip_similarity": {
+        "mean": 0.670931,
+        "std": 0.108303,
+        "min": 0.426569,
+        "max": 0.905864,
+        "n": 180
+      },
+      "lpips": {
+        "mean": 0.688614,
+        "std": 0.055262,
+        "min": 0.550043,
+        "max": 0.860122,
+        "n": 180
+      },
+      "pixel_mse": {
+        "mean": 0.039439,
+        "std": 0.013973,
+        "min": 0.015716,
+        "max": 0.084256,
+        "n": 180
+      },
+      "pixel_rmse": {
+        "mean": 0.195229,
+        "std": 0.036494,
+        "min": 0.125363,
+        "max": 0.290268,
+        "n": 180
+      }
+    },
+    "best_per_image_top1": {
+      "clip_similarity": {
+        "mean": 0.771051,
+        "std": 0.102615,
+        "min": 0.645008,
+        "max": 0.905864,
+        "n": 6
+      },
+      "lpips": {
+        "mean": 0.637773,
+        "std": 0.054814,
+        "min": 0.550043,
+        "max": 0.71289,
+        "n": 6
+      },
+      "pixel_mse": {
+        "mean": 0.032779,
+        "std": 0.014618,
+        "min": 0.017079,
+        "max": 0.050315,
+        "n": 6
+      },
+      "pixel_rmse": {
+        "mean": 0.177098,
+        "std": 0.041208,
+        "min": 0.130686,
+        "max": 0.22431,
+        "n": 6
+      }
+    },
+    "submitted_top3": {
+      "clip_similarity": {
+        "mean": 0.730642,
+        "std": 0.103065,
+        "min": 0.549551,
+        "max": 0.905864,
+        "n": 18
+      },
+      "lpips": {
+        "mean": 0.638093,
+        "std": 0.053139,
+        "min": 0.550043,
+        "max": 0.71289,
+        "n": 18
+      },
+      "pixel_mse": {
+        "mean": 0.032141,
+        "std": 0.013274,
+        "min": 0.015716,
+        "max": 0.050315,
+        "n": 18
+      },
+      "pixel_rmse": {
+        "mean": 0.175432,
+        "std": 0.038017,
+        "min": 0.125363,
+        "max": 0.22431,
+        "n": 18
+      }
+    }
+  },
+  "metric_rank_correlations_spearman": {
+    "clip_vs_lpips": -0.3289,
+    "clip_vs_mse": -0.0808,
+    "lpips_vs_mse": 0.6864
+  },
+  "per_image": {
+    "1159_25.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 14,
+      "best_prompt": "Orange juice, highly detailed, 3D render, ambient occlusion, medium shot, by Greg Rutkowski",
+      "best_clip_similarity": 0.905864,
+      "best_lpips": 0.673929,
+      "best_pixel_mse": 0.050315,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.560065,
+          "std": 0.085057,
+          "min": 0.479051,
+          "max": 0.905864,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.731249,
+          "std": 0.043101,
+          "min": 0.673929,
+          "max": 0.842331,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.054982,
+          "std": 0.009197,
+          "min": 0.043057,
+          "max": 0.084256,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.233733,
+          "std": 0.019051,
+          "min": 0.207502,
+          "max": 0.290268,
+          "n": 30
+        }
+      }
+    },
+    "1159_29.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 2,
+      "best_prompt": "palm tree, masterpiece, best quality, highly detailed, sharp focus, 8k, Greg Rutkowski, concept art, dramatic cinematic lighting, medium shot, rule of thirds",
+      "best_clip_similarity": 0.864759,
+      "best_lpips": 0.71289,
+      "best_pixel_mse": 0.046921,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.756234,
+          "std": 0.109567,
+          "min": 0.579607,
+          "max": 0.864759,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.738027,
+          "std": 0.047092,
+          "min": 0.668937,
+          "max": 0.860122,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.052057,
+          "std": 0.005457,
+          "min": 0.039491,
+          "max": 0.064905,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.227858,
+          "std": 0.011953,
+          "min": 0.198723,
+          "max": 0.254765,
+          "n": 30
+        }
+      }
+    },
+    "1159_3.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 5,
+      "best_prompt": "female character with fire coming out of her hands, masterpiece, best quality, highly detailed, sharp focus, 8k, Ross Tran, digital painting, ambient occlusion, bokeh, rule of thirds",
+      "best_clip_similarity": 0.762436,
+      "best_lpips": 0.619765,
+      "best_pixel_mse": 0.039357,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.75734,
+          "std": 0.012653,
+          "min": 0.733049,
+          "max": 0.76988,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.672879,
+          "std": 0.040433,
+          "min": 0.619765,
+          "max": 0.743534,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.045441,
+          "std": 0.003946,
+          "min": 0.039357,
+          "max": 0.050199,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.212972,
+          "std": 0.009304,
+          "min": 0.198387,
+          "max": 0.224052,
+          "n": 30
+        }
+      }
+    },
+    "1159_7.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 5,
+      "best_prompt": "hedgehog, 3D render, best quality, highly detailed, sharp focus, 8k, Ross Tran, photorealistic, ambient occlusion, bokeh",
+      "best_clip_similarity": 0.672506,
+      "best_lpips": 0.639295,
+      "best_pixel_mse": 0.024393,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.594232,
+          "std": 0.083421,
+          "min": 0.426569,
+          "max": 0.6749,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.664665,
+          "std": 0.041025,
+          "min": 0.598598,
+          "max": 0.770627,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.032834,
+          "std": 0.007138,
+          "min": 0.017377,
+          "max": 0.04691,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.18012,
+          "std": 0.020102,
+          "min": 0.131823,
+          "max": 0.216587,
+          "n": 30
+        }
+      }
+    },
+    "7836.png": {
+      "render_seed": 7836,
+      "n_candidates": 30,
+      "best_candidate_index": 8,
+      "best_prompt": "astronaut, space art, concept art, volumetric lighting, dramatic cinematic lighting, full body shot, rule of thirds, best quality, highly detailed, sharp focus, 8k, WLOP",
+      "best_clip_similarity": 0.775734,
+      "best_lpips": 0.630718,
+      "best_pixel_mse": 0.017079,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.747407,
+          "std": 0.039043,
+          "min": 0.684581,
+          "max": 0.793044,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.640104,
+          "std": 0.035148,
+          "min": 0.577725,
+          "max": 0.683675,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.020055,
+          "std": 0.002193,
+          "min": 0.017079,
+          "max": 0.023601,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.141414,
+          "std": 0.007674,
+          "min": 0.130686,
+          "max": 0.153626,
+          "n": 30
+        }
+      }
+    },
+    "9338.png": {
+      "render_seed": 9338,
+      "n_candidates": 30,
+      "best_candidate_index": 12,
+      "best_prompt": "masterpiece, best quality, highly detailed, sharp focus, 8k, whimsical demon with rainbow fur, digital painting, Alphonse Mucha, full body, volumetric lighting, rule of thirds",
+      "best_clip_similarity": 0.645008,
+      "best_lpips": 0.550043,
+      "best_pixel_mse": 0.018608,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.610308,
+          "std": 0.024744,
+          "min": 0.56231,
+          "max": 0.653596,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.684761,
+          "std": 0.050157,
+          "min": 0.550043,
+          "max": 0.764824,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.031264,
+          "std": 0.008033,
+          "min": 0.015716,
+          "max": 0.046876,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.175277,
+          "std": 0.023674,
+          "min": 0.125363,
+          "max": 0.21651,
+          "n": 30
+        }
+      }
+    }
+  }
+}
