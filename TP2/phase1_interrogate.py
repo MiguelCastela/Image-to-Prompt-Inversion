@@ -1,16 +1,9 @@
 """
-Phase 1 (warm start): clip-interrogator out of the box.
+Phase 1 (warm start): clip-interrogator's interrogate() per target image.
 
-Calls the clip_interrogator library as shipped:
-
-    ci = Interrogator(Config())
-    prompt = ci.interrogate(image)
-
-interrogate() runs its built-in blip-large captioner, retrieves the best
-matching phrases from its vocab (mediums / artists / movements / flavors), and
-stitches them into one DreamShaper-style prompt string. The BLIP-2 subject from
-phase1_captions.json is prepended so the subject token leads the prompt. The
-result is the warm start each Phase 4 branch begins from.
+ci.interrogate() generates a blip-large caption, matches its vocab banks
+(mediums/artists/movements/flavors) and returns one stitched prompt string.
+The BLIP-2 subject from phase1_captions.json is prepended so it leads.
 
 Environment: clip-interrogator pulls open_clip and its own model versions;
 install/run it in an environment that does not conflict with the transformers
@@ -81,8 +74,6 @@ def main():
         subject = subjects.get(image_path.name, "")
         ci_prompt = ci.interrogate(image)
         warm = build_warmstart(ci_prompt, subject)
-        # Store warm (rendered), ci (style/medium hint for the VLM) and subject
-        # separately so Phase 4 can tell Qwen which text is subject vs. style.
         results[image_path.name] = {
             "warm": warm,
             "ci": ci_prompt,

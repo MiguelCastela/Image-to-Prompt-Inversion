@@ -1,0 +1,372 @@
+{
+  "metadata": {
+    "model_id": "SimianLuo/LCM_Dreamshaper_v7",
+    "num_inference_steps": 8,
+    "guidance_scale": 8.0,
+    "original_inference_steps": 50,
+    "width": 768,
+    "height": 768,
+    "device": "cuda",
+    "dtype": "float16",
+    "seed_policy": "leading digits of target filename (fallback 2026)",
+    "top_k": 3,
+    "n_images": 6,
+    "n_candidates_total": 45,
+    "metrics": [
+      "clip_similarity",
+      "lpips",
+      "pixel_mse",
+      "pixel_rmse"
+    ],
+    "ranking": "composite = mean(rank_clip, rank_lpips, rank_mse)",
+    "generated_at": "2026-06-06T23:45:34.986416+00:00",
+    "phase": "phase4_refine",
+    "n_iterations": 1,
+    "n_proposals": 5,
+    "beam_width": 3,
+    "branches": [
+      "clip",
+      "lpips",
+      "mse",
+      "composite"
+    ],
+    "vlm": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
+    "do_sample": true,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "gen_seed": 1234
+  },
+  "aggregate": {
+    "all_candidates": {
+      "clip_similarity": {
+        "mean": 0.839588,
+        "std": 0.057463,
+        "min": 0.707498,
+        "max": 0.937434,
+        "n": 45
+      },
+      "lpips": {
+        "mean": 0.650306,
+        "std": 0.066138,
+        "min": 0.500636,
+        "max": 0.769577,
+        "n": 45
+      },
+      "pixel_mse": {
+        "mean": 0.042191,
+        "std": 0.013951,
+        "min": 0.016318,
+        "max": 0.07,
+        "n": 45
+      },
+      "pixel_rmse": {
+        "mean": 0.202446,
+        "std": 0.035132,
+        "min": 0.127741,
+        "max": 0.264576,
+        "n": 45
+      }
+    },
+    "best_per_image_top1": {
+      "clip_similarity": {
+        "mean": 0.850555,
+        "std": 0.070676,
+        "min": 0.744387,
+        "max": 0.937434,
+        "n": 6
+      },
+      "lpips": {
+        "mean": 0.590343,
+        "std": 0.084806,
+        "min": 0.500636,
+        "max": 0.709465,
+        "n": 6
+      },
+      "pixel_mse": {
+        "mean": 0.028441,
+        "std": 0.011552,
+        "min": 0.016318,
+        "max": 0.045112,
+        "n": 6
+      },
+      "pixel_rmse": {
+        "mean": 0.165791,
+        "std": 0.033839,
+        "min": 0.127741,
+        "max": 0.212395,
+        "n": 6
+      }
+    },
+    "submitted_top3": {
+      "clip_similarity": {
+        "mean": 0.851975,
+        "std": 0.068633,
+        "min": 0.710647,
+        "max": 0.937434,
+        "n": 16
+      },
+      "lpips": {
+        "mean": 0.615458,
+        "std": 0.073142,
+        "min": 0.500636,
+        "max": 0.709465,
+        "n": 16
+      },
+      "pixel_mse": {
+        "mean": 0.03261,
+        "std": 0.010659,
+        "min": 0.016318,
+        "max": 0.045574,
+        "n": 16
+      },
+      "pixel_rmse": {
+        "mean": 0.178177,
+        "std": 0.030334,
+        "min": 0.127741,
+        "max": 0.213481,
+        "n": 16
+      }
+    }
+  },
+  "metric_rank_correlations_spearman": {
+    "clip_vs_lpips": 0.0647,
+    "clip_vs_mse": 0.1509,
+    "lpips_vs_mse": 0.5544
+  },
+  "per_image": {
+    "1159_25.png": {
+      "render_seed": 1159,
+      "n_candidates": 4,
+      "best_candidate_index": 2,
+      "best_prompt": "Glass of orange juice, vibrant orange slices, creamy texture, photorealistic, smooth!",
+      "best_clip_similarity": 0.937434,
+      "best_lpips": 0.500636,
+      "best_pixel_mse": 0.02362,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.917821,
+          "std": 0.022075,
+          "min": 0.896757,
+          "max": 0.937434,
+          "n": 4
+        },
+        "lpips": {
+          "mean": 0.521879,
+          "std": 0.021321,
+          "min": 0.500636,
+          "max": 0.550405,
+          "n": 4
+        },
+        "pixel_mse": {
+          "mean": 0.031689,
+          "std": 0.00677,
+          "min": 0.02362,
+          "max": 0.037602,
+          "n": 4
+        },
+        "pixel_rmse": {
+          "mean": 0.177221,
+          "std": 0.019363,
+          "min": 0.153689,
+          "max": 0.193912,
+          "n": 4
+        }
+      }
+    },
+    "1159_29.png": {
+      "render_seed": 1159,
+      "n_candidates": 11,
+      "best_candidate_index": 1,
+      "best_prompt": "The palm tree on the beach at sunset, arafed palm tree on a rock in the ocean at sunset, photorender, trees growing on its body, flooded ground, octane realphoto, under the soft shadow of a tree, hazy water, twisted trunk, water swirling, deblurring, by Matthias Weischer, photoshoped, by Robert Koehler, 3 drender, high-definition photograph",
+      "best_clip_similarity": 0.914667,
+      "best_lpips": 0.709465,
+      "best_pixel_mse": 0.045112,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.888776,
+          "std": 0.030978,
+          "min": 0.838262,
+          "max": 0.914667,
+          "n": 11
+        },
+        "lpips": {
+          "mean": 0.730266,
+          "std": 0.024471,
+          "min": 0.709465,
+          "max": 0.769577,
+          "n": 11
+        },
+        "pixel_mse": {
+          "mean": 0.05523,
+          "std": 0.01173,
+          "min": 0.045112,
+          "max": 0.07,
+          "n": 11
+        },
+        "pixel_rmse": {
+          "mean": 0.233818,
+          "std": 0.024797,
+          "min": 0.212395,
+          "max": 0.264576,
+          "n": 11
+        }
+      }
+    },
+    "1159_3.png": {
+      "render_seed": 1159,
+      "n_candidates": 18,
+      "best_candidate_index": 12,
+      "best_prompt": "ash blond female character with fire emanating from her hands, wearing tactical gear, holding a sword, inspired by Mandy Jurgens, Yanjun Cheng, visibly angry, official character illustration, fireball lighting her face, asymmetrical artwork",
+      "best_clip_similarity": 0.849285,
+      "best_lpips": 0.561753,
+      "best_pixel_mse": 0.039347,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.829271,
+          "std": 0.021793,
+          "min": 0.780597,
+          "max": 0.858265,
+          "n": 18
+        },
+        "lpips": {
+          "mean": 0.642244,
+          "std": 0.025152,
+          "min": 0.561753,
+          "max": 0.671442,
+          "n": 18
+        },
+        "pixel_mse": {
+          "mean": 0.047918,
+          "std": 0.004623,
+          "min": 0.039347,
+          "max": 0.056016,
+          "n": 18
+        },
+        "pixel_rmse": {
+          "mean": 0.218659,
+          "std": 0.0106,
+          "min": 0.19836,
+          "max": 0.236678,
+          "n": 18
+        }
+      }
+    },
+    "1159_7.png": {
+      "render_seed": 1159,
+      "n_candidates": 6,
+      "best_candidate_index": 6,
+      "best_prompt": "A hedgehog, small hedgehog, crystal translucent hair, Kim Keever style, SCP-914, unique design, checkered spikes, translucent cube, fluffy, optical illusion, photo of head",
+      "best_clip_similarity": 0.744387,
+      "best_lpips": 0.676693,
+      "best_pixel_mse": 0.0278,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.73207,
+          "std": 0.020848,
+          "min": 0.707498,
+          "max": 0.760657,
+          "n": 6
+        },
+        "lpips": {
+          "mean": 0.678812,
+          "std": 0.006381,
+          "min": 0.671029,
+          "max": 0.6892,
+          "n": 6
+        },
+        "pixel_mse": {
+          "mean": 0.029314,
+          "std": 0.002856,
+          "min": 0.027176,
+          "max": 0.034954,
+          "n": 6
+        },
+        "pixel_rmse": {
+          "mean": 0.171054,
+          "std": 0.008084,
+          "min": 0.16485,
+          "max": 0.186959,
+          "n": 6
+        }
+      }
+    },
+    "7836.png": {
+      "render_seed": 7836,
+      "n_candidates": 1,
+      "best_candidate_index": 1,
+      "best_prompt": "The astronaut, astronaut standing on the surface of a planet with a bright light shining in the background, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "best_clip_similarity": 0.805373,
+      "best_lpips": 0.51804,
+      "best_pixel_mse": 0.016318,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.805373,
+          "std": 0.0,
+          "min": 0.805373,
+          "max": 0.805373,
+          "n": 1
+        },
+        "lpips": {
+          "mean": 0.51804,
+          "std": 0.0,
+          "min": 0.51804,
+          "max": 0.51804,
+          "n": 1
+        },
+        "pixel_mse": {
+          "mean": 0.016318,
+          "std": 0.0,
+          "min": 0.016318,
+          "max": 0.016318,
+          "n": 1
+        },
+        "pixel_rmse": {
+          "mean": 0.127741,
+          "std": 0.0,
+          "min": 0.127741,
+          "max": 0.127741,
+          "n": 1
+        }
+      }
+    },
+    "9338.png": {
+      "render_seed": 9338,
+      "n_candidates": 5,
+      "best_candidate_index": 3,
+      "best_prompt": "A rainbow colored hamster, painting of a mouse with a colorful tail and tail, julie dillon, volumetric rainbow lighting, the squirrel king, featured on dribble, rendered art",
+      "best_clip_similarity": 0.852182,
+      "best_lpips": 0.575469,
+      "best_pixel_mse": 0.01845,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.841799,
+          "std": 0.0102,
+          "min": 0.828544,
+          "max": 0.852182,
+          "n": 5
+        },
+        "lpips": {
+          "mean": 0.598403,
+          "std": 0.014507,
+          "min": 0.575469,
+          "max": 0.613058,
+          "n": 5
+        },
+        "pixel_mse": {
+          "mean": 0.02192,
+          "std": 0.002525,
+          "min": 0.01845,
+          "max": 0.024656,
+          "n": 5
+        },
+        "pixel_rmse": {
+          "mean": 0.147851,
+          "std": 0.008635,
+          "min": 0.135829,
+          "max": 0.157023,
+          "n": 5
+        }
+      }
+    }
+  }
+}

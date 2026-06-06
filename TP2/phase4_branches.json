@@ -1,0 +1,206 @@
+{
+  "1159_25.png": {
+    "clip": {
+      "prompt": "Glass of orange juice, vibrant orange slices, creamy texture, photorealistic, smooth!",
+      "render": "outputs/phase4/1159_25/clip/iter01_01.png",
+      "clip_similarity": 0.937434,
+      "lpips": 0.500636,
+      "pixel_mse": 0.02362,
+      "pixel_rmse": 0.153689
+    },
+    "lpips": {
+      "prompt": "Orange juice, there is a glass of orange juice with a slice of orange on the side, 3d image, photostock, octane realphoto, top milk brands, white border and background, scp-914, unsplash photography, smooth!",
+      "render": "outputs/phase4/1159_25/lpips/iter01_01.png",
+      "clip_similarity": 0.896757,
+      "lpips": 0.512226,
+      "pixel_mse": 0.036957,
+      "pixel_rmse": 0.192241
+    },
+    "mse": {
+      "prompt": "Orange juice, there is a glass of orange juice with a slice of orange on the side, 3 d image, photostock, octane realphoto, top milk brands, white border and background, scp-914, unsplash photography, smooth!]",
+      "render": "outputs/phase4/1159_25/_warm/warm.png",
+      "clip_similarity": 0.900763,
+      "lpips": 0.524248,
+      "pixel_mse": 0.037602,
+      "pixel_rmse": 0.193912
+    },
+    "composite": {
+      "prompt": "Orange juice, there is a glass of orange juice with a slice of orange on the side, 3 d image, photostock, octane realphoto, top milk brands, white border and background, scp-914, unsplash photography, smooth!]",
+      "render": "outputs/phase4/1159_25/_warm/warm.png",
+      "clip_similarity": 0.900763,
+      "lpips": 0.524248,
+      "pixel_mse": 0.037602,
+      "pixel_rmse": 0.193912
+    }
+  },
+  "1159_29.png": {
+    "clip": {
+      "prompt": "The palm tree on the beach at sunset, arafed palm tree on a rock in the ocean at sunset, photorender, trees growing on its body, flooded ground, octane realphoto, under the soft shadow of a tree, hazy water, twisted trunk, water swirling, deblurring, by Matthias Weischer, photoshoped, by Robert Koehler, 3 drender, high-definition photograph",
+      "render": "outputs/phase4/1159_29/_warm/warm.png",
+      "clip_similarity": 0.914667,
+      "lpips": 0.709465,
+      "pixel_mse": 0.045112,
+      "pixel_rmse": 0.212395
+    },
+    "lpips": {
+      "prompt": "The palm tree on the beach at sunset, arafed palm tree on a rock in the ocean at sunset, photorender, trees growing on its body, flooded ground, octane realphoto, under the soft shadow of a tree, hazy water, twisted trunk, water swirling, deblurring, by Matthias Weischer, photoshoped, by Robert Koehler, 3 drender, high-definition photograph",
+      "render": "outputs/phase4/1159_29/_warm/warm.png",
+      "clip_similarity": 0.914667,
+      "lpips": 0.709465,
+      "pixel_mse": 0.045112,
+      "pixel_rmse": 0.212395
+    },
+    "mse": {
+      "prompt": "The palm tree on the beach at sunset, arafed palm tree on a rock in the ocean at sunset, photorender, trees growing on its body, flooded ground, octane realphoto, under the soft shadow of a tree, hazy water, twisted trunk, water swirling, deblurring, by Matthias Weischer, photoshoped, by Robert Koehler, 3 drender, high-definition photograph",
+      "render": "outputs/phase4/1159_29/_warm/warm.png",
+      "clip_similarity": 0.914667,
+      "lpips": 0.709465,
+      "pixel_mse": 0.045112,
+      "pixel_rmse": 0.212395
+    },
+    "composite": {
+      "prompt": "The palm tree on the beach at sunset, arafed palm tree on a rock in the ocean at sunset, photorender, trees growing on its body, flooded ground, octane realphoto, under the soft shadow of a tree, hazy water, twisted trunk, water swirling, deblurring, by Matthias Weischer, photoshoped, by Robert Koehler, 3 drender, high-definition photograph",
+      "render": "outputs/phase4/1159_29/_warm/warm.png",
+      "clip_similarity": 0.914667,
+      "lpips": 0.709465,
+      "pixel_mse": 0.045112,
+      "pixel_rmse": 0.212395
+    }
+  },
+  "1159_3.png": {
+    "clip": {
+      "prompt": "ash blond female character with fire coming out of her hands, anime character with a sword and fire in his hand, inspired by Mandy Jurgens, Yanjun Cheng, visibly angry, official character illustration, fireball lighting her face, asymmetrical artwork",
+      "render": "outputs/phase4/1159_3/clip/iter01_02.png",
+      "clip_similarity": 0.85002,
+      "lpips": 0.637762,
+      "pixel_mse": 0.047023,
+      "pixel_rmse": 0.216847
+    },
+    "lpips": {
+      "prompt": "a female character with fire coming out of her hands, anime character with a sword and fire in his hand, inspired by Mandy Jurgens, ash blond hair, by Yanjun Cheng, visibly angry, official character illustration, fireball lighting her face, asymmetrical artwork",
+      "render": "outputs/phase4/1159_3/_warm/warm.png",
+      "clip_similarity": 0.780597,
+      "lpips": 0.623146,
+      "pixel_mse": 0.040716,
+      "pixel_rmse": 0.201782
+    },
+    "mse": {
+      "prompt": "ash blond female character with fire emanating from her hands, wearing tactical gear, holding a sword, inspired by Mandy Jurgens, Yanjun Cheng, visibly angry, official character illustration, fireball lighting her face, asymmetrical artwork",
+      "render": "outputs/phase4/1159_3/mse/iter01_04.png",
+      "clip_similarity": 0.849285,
+      "lpips": 0.561753,
+      "pixel_mse": 0.039347,
+      "pixel_rmse": 0.19836
+    },
+    "composite": {
+      "prompt": "a female character with fire coming out of her hands, anime character with a sword and fire in his hand, inspired by Mandy Jurgens, ash blond hair, by Yanjun Cheng, visibly angry, official character illustration, fireball lighting her face, asymmetrical artwork",
+      "render": "outputs/phase4/1159_3/_warm/warm.png",
+      "clip_similarity": 0.780597,
+      "lpips": 0.623146,
+      "pixel_mse": 0.040716,
+      "pixel_rmse": 0.201782
+    }
+  },
+  "1159_7.png": {
+    "clip": {
+      "prompt": "A hedgehog, there is a small hedgehog sitting on top of a block of cake, crystalline translucent hair, by Kim Keever, scp-914, unique design, checkered spiked hair, translucent cube, outrageously fluffy, feathered head, optical illusions, photo of head",
+      "render": "outputs/phase4/1159_7/_warm/warm.png",
+      "clip_similarity": 0.760657,
+      "lpips": 0.671029,
+      "pixel_mse": 0.034954,
+      "pixel_rmse": 0.186959
+    },
+    "lpips": {
+      "prompt": "A hedgehog, there is a small hedgehog sitting on top of a block of cake, crystalline translucent hair, by Kim Keever, scp-914, unique design, checkered spiked hair, translucent cube, outrageously fluffy, feathered head, optical illusions, photo of head",
+      "render": "outputs/phase4/1159_7/_warm/warm.png",
+      "clip_similarity": 0.760657,
+      "lpips": 0.671029,
+      "pixel_mse": 0.034954,
+      "pixel_rmse": 0.186959
+    },
+    "mse": {
+      "prompt": "A hedgehog, small hedgehog, crystal translucent hair, Kim Keever style, SCP-914, unique design, checkered spikes, translucent cube, fluffy, optical illusion, photo of head",
+      "render": "outputs/phase4/1159_7/mse/iter01_01.png",
+      "clip_similarity": 0.744387,
+      "lpips": 0.676693,
+      "pixel_mse": 0.0278,
+      "pixel_rmse": 0.166734
+    },
+    "composite": {
+      "prompt": "A hedgehog, there is a small hedgehog sitting on top of a block of cake, crystalline translucent hair, by Kim Keever, scp-914, unique design, checkered spiked hair, translucent cube, outrageously fluffy, feathered head, optical illusions, photo of head",
+      "render": "outputs/phase4/1159_7/_warm/warm.png",
+      "clip_similarity": 0.760657,
+      "lpips": 0.671029,
+      "pixel_mse": 0.034954,
+      "pixel_rmse": 0.186959
+    }
+  },
+  "7836.png": {
+    "clip": {
+      "prompt": "The astronaut, astronaut standing on the surface of a planet with a bright light shining in the background, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4/7836/_warm/warm.png",
+      "clip_similarity": 0.805373,
+      "lpips": 0.51804,
+      "pixel_mse": 0.016318,
+      "pixel_rmse": 0.127741
+    },
+    "lpips": {
+      "prompt": "The astronaut, astronaut standing on the surface of a planet with a bright light shining in the background, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4/7836/_warm/warm.png",
+      "clip_similarity": 0.805373,
+      "lpips": 0.51804,
+      "pixel_mse": 0.016318,
+      "pixel_rmse": 0.127741
+    },
+    "mse": {
+      "prompt": "The astronaut, astronaut standing on the surface of a planet with a bright light shining in the background, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4/7836/_warm/warm.png",
+      "clip_similarity": 0.805373,
+      "lpips": 0.51804,
+      "pixel_mse": 0.016318,
+      "pixel_rmse": 0.127741
+    },
+    "composite": {
+      "prompt": "The astronaut, astronaut standing on the surface of a planet with a bright light shining in the background, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4/7836/_warm/warm.png",
+      "clip_similarity": 0.805373,
+      "lpips": 0.51804,
+      "pixel_mse": 0.016318,
+      "pixel_rmse": 0.127741
+    }
+  },
+  "9338.png": {
+    "clip": {
+      "prompt": "A rainbow colored hamster, painting of a mouse with a colorful tail and tail, julie dillon, volumetric rainbow lighting, the squirrel king, featured on dribble, rendered art",
+      "render": "outputs/phase4/9338/clip/iter01_03.png",
+      "clip_similarity": 0.852182,
+      "lpips": 0.575469,
+      "pixel_mse": 0.01845,
+      "pixel_rmse": 0.135829
+    },
+    "lpips": {
+      "prompt": "A rainbow colored hamster, painting of a mouse with a colorful tail and tail, julie dillon, volumetric rainbow lighting, the squirrel king, featured on dribble, photographic color scheme blur, by Andrew Stevovich, rendered art",
+      "render": "outputs/phase4/9338/lpips/iter01_02.png",
+      "clip_similarity": 0.844959,
+      "lpips": 0.598478,
+      "pixel_mse": 0.023179,
+      "pixel_rmse": 0.152246
+    },
+    "mse": {
+      "prompt": "A rainbow colored hamster, painting of a mouse with a colorful tail and tail, julie dillon, volumetric rainbow lighting, the squirrel king, featured on dribble, photographic color scheme blur, rendered art",
+      "render": "outputs/phase4/9338/mse/iter01_04.png",
+      "clip_similarity": 0.833824,
+      "lpips": 0.596698,
+      "pixel_mse": 0.020199,
+      "pixel_rmse": 0.142123
+    },
+    "composite": {
+      "prompt": "A rainbow colored hamster, painting of a mouse with a colorful tail and tail, julie dillon, volumetric rainbow lighting, the squirrel king, featured on dribbble, photographic color scheme blur, by Andrew Stevovich, rendered art",
+      "render": "outputs/phase4/9338/_warm/warm.png",
+      "clip_similarity": 0.828544,
+      "lpips": 0.613058,
+      "pixel_mse": 0.024656,
+      "pixel_rmse": 0.157023
+    }
+  }
+}

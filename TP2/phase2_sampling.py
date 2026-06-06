@@ -35,16 +35,19 @@ BACKEND         = "qwen"    # "qwen" | "claude"
 QWEN_MODEL_ID   = "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
 CLAUDE_MODEL_ID = "claude-opus-4-8"
 N_VARIATIONS    = 30
-MAX_NEW_TOKENS  = 4096
+MAX_NEW_TOKENS  = 1024   # enough for a batch of short numbered prompts
 
-# Sampling: greedy decoding collapses the N variations toward near-duplicates,
-# so sample with a moderate temperature for diversity. Reproducibility is kept
-# by fixing GEN_SEED before generation (logged in phase2_full.json), not by
-# greedy decoding.
-DO_SAMPLE   = True
-TEMPERATURE = 0.7
-TOP_P       = 0.9
-GEN_SEED    = 1234
+# Diversity via PROMPT HISTORY, not sampling tricks: we generate in rounds and
+# feed every prompt produced so far back to the model with "generate NEW ones
+# different from these". This forces variety by conditioning (the model can see
+# what to avoid) instead of voodoo like repetition penalties. A normal
+# temperature is enough; reproducible via GEN_SEED.
+DO_SAMPLE     = True
+TEMPERATURE   = 0.8
+TOP_P         = 0.95
+ROUND_SIZE    = 10   # prompts requested per round
+MAX_ROUNDS    = 6    # stop after this many rounds even if < N unique
+GEN_SEED      = 1234
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
@@ -55,7 +58,7 @@ SYSTEM_PROMPT = """\
 You are a prompt engineer for the DreamShaper v7 Stable Diffusion model (LCM \
 sampling, 8 inference steps, guidance scale 8.0, fixed random seed).
 
-Given a TARGET image and its analysis, write exactly {n} diverse prompts that, \
+Given a TARGET image and its analysis, write exactly {n} DIFFERENT prompts that, \
 when rendered, reproduce the target as closely as possible. Each render is \
 compared against the target, so every prompt must depict the SAME target.
 
@@ -64,13 +67,16 @@ Rules:
 background, style, lighting.
 - Put the SUBJECT first — it is the most important token.
 - Treat the BLIP-2 text as the SUBJECT (what the thing is) and the \
-clip-interrogator text as the STYLE / medium (how it looks).
+clip-interrogator text as STYLE HINTS (how it looks).
+- The {n} prompts MUST be genuinely different from each other: do NOT copy the \
+style hints verbatim. Recombine them, rephrase with synonyms, reorder tokens, \
+add or drop descriptive details, and vary emphasis across the {n} prompts — \
+while still depicting the same target.
 - Do NOT invent artists, people, or content that is not implied by the target.
-- Vary the wording, token ordering, and emphasis across the {n} prompts so they \
-explore the space — but every prompt must still depict the same target.
-- Use short comma-separated tags, not full sentences. Keep each prompt under 30 words.
+- Use short comma-separated tags, not full sentences. Keep each under 30 words.
 
-Output EXACTLY {n} prompts, numbered "1." through "{n}.". No preamble or commentary.\
+Output EXACTLY {n} prompts, numbered "1." to "{n}.", one per line. No preamble, \
+no commentary, no markdown, no blank lines.\
 """
 
 
@@ -104,14 +110,33 @@ def clean_prompt(prompt: str) -> str:
     return ", ".join(t for t in (tok.strip() for tok in tokens) if t)
 
 
+def dedupe(prompts: list[str], n: int) -> list[str]:
+    out, seen = [], set()
+    for p in prompts:
+        key = p.lower()
+        if p and key not in seen:
+            seen.add(key)
+            out.append(p)
+    return out[:n]
+
+
+# A valid prompt line is a numbered list item ("1. ..." / "2) ..."). Requiring
+# the number filters out markdown headers, code fences, "---" and any meta
+# commentary the VLM emits around the list.
+_NUM_RE = re.compile(r"^\s*\d+\s*[.)]\s+(.*\S)\s*$")
+
+
 def parse_numbered_list(text: str, n: int) -> list[str]:
-    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     prompts = []
-    for line in lines:
-        cleaned = re.sub(r"^\d+[\.\)]\s*", "", line).strip()
+    for line in text.split("\n"):
+        m = _NUM_RE.match(line)
+        if not m:
+            continue
+        body = m.group(1).strip().strip("*`").strip()   # drop stray markdown
+        cleaned = clean_prompt(body)
         if cleaned:
-            prompts.append(clean_prompt(cleaned))
-    return prompts[:n]
+            prompts.append(cleaned)
+    return dedupe(prompts, n)
 
 
 # ── Qwen backend ──────────────────────────────────────────────────────────────
@@ -165,47 +190,76 @@ def load_qwen(model_id: str):
     return model, processor
 
 
+def _round_user_text(context: str, need: int, history: list[str]) -> str:
+    """User turn for one round: ask for `need` prompts, showing prior ones so the
+    model produces NEW prompts different from everything generated so far."""
+    text = f"{context}\n\nGenerate {need} different prompts for this target."
+    if history:
+        avoid = "\n".join(f"- {p}" for p in history)
+        text += (
+            f"\n\nYou have ALREADY generated the prompts below. Generate {need} "
+            f"NEW prompts that are clearly DIFFERENT from every one of these "
+            f"(different wording, emphasis, and detail):\n{avoid}"
+        )
+    return text
+
+
 def generate_qwen(
     model, processor, image_path: Path, context: str, n: int
 ) -> tuple[list[str], str]:
+    """Round-based generation with prompt history. Each round we feed back all
+    prompts produced so far and ask for NEW different ones, so diversity comes
+    from explicit conditioning (history) rather than sampling hacks."""
     import torch
     from qwen_vl_utils import process_vision_info
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(n=n)},
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": image_path.resolve().as_uri()},
-                {
-                    "type": "text",
-                    "text": f"{context}\n\nGenerate {n} diverse prompt variations for this image.",
-                },
-            ],
-        },
-    ]
+    torch.manual_seed(GEN_SEED)  # reproducible sampling
+    collected: list[str] = []
+    raw_rounds: list[str] = []
 
-    text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    image_inputs, video_inputs = process_vision_info(messages)
-    inputs = processor(
-        text=[text],
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    ).to(model.device)
+    for _ in range(MAX_ROUNDS):
+        if len(collected) >= n:
+            break
+        need = min(ROUND_SIZE, n - len(collected))
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT.format(n=need)},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image_path.resolve().as_uri()},
+                    {"type": "text", "text": _round_user_text(context, need, collected)},
+                ],
+            },
+        ]
+        text = processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        image_inputs, video_inputs = process_vision_info(messages)
+        inputs = processor(
+            text=[text], images=image_inputs, videos=video_inputs,
+            padding=True, return_tensors="pt",
+        ).to(model.device)
 
-    gen_kwargs = {"max_new_tokens": MAX_NEW_TOKENS, "do_sample": DO_SAMPLE}
-    if DO_SAMPLE:
-        gen_kwargs.update(temperature=TEMPERATURE, top_p=TOP_P)
-    with torch.no_grad():
-        generated_ids = model.generate(**inputs, **gen_kwargs)
+        with torch.no_grad():
+            generated = model.generate(
+                **inputs,
+                max_new_tokens=MAX_NEW_TOKENS,
+                do_sample=DO_SAMPLE,
+                temperature=TEMPERATURE,
+                top_p=TOP_P,
+            )
+        output = processor.decode(
+            generated[0][inputs.input_ids.shape[1]:], skip_special_tokens=True
+        )
+        raw_rounds.append(output)
 
-    trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated_ids)]
-    output = processor.batch_decode(trimmed, skip_special_tokens=True)[0]
-    return parse_numbered_list(output, n), output
+        before = len(collected)
+        # dedupe against the full running history, not just this round
+        collected = dedupe(collected + parse_numbered_list(output, n), n)
+        if len(collected) == before:
+            break  # a round added nothing new — stop wasting compute
+
+    return collected, "\n--- round ---\n".join(raw_rounds)
 
 
 # ── Claude backend ────────────────────────────────────────────────────────────
@@ -218,6 +272,7 @@ def load_claude():
 def generate_claude(
     client, image_path: Path, context: str, n: int
 ) -> tuple[list[str], str]:
+    """One pass: ask for n different numbered prompts (mirrors the Qwen path)."""
     ext = image_path.suffix.lower().lstrip(".")
     media_type = f"image/{'jpeg' if ext == 'jpg' else ext}"
     img_data = base64.standard_b64encode(image_path.read_bytes()).decode()
@@ -225,6 +280,7 @@ def generate_claude(
     response = client.messages.create(
         model=CLAUDE_MODEL_ID,
         max_tokens=4096,
+        temperature=TEMPERATURE,
         system=SYSTEM_PROMPT.format(n=n),
         messages=[{
             "role": "user",
@@ -239,7 +295,7 @@ def generate_claude(
                 },
                 {
                     "type": "text",
-                    "text": f"{context}\n\nGenerate {n} diverse prompt variations for this image.",
+                    "text": f"{context}\n\nGenerate {n} different prompts for this target.",
                 },
             ],
         }],
@@ -335,6 +391,9 @@ def main():
             "temperature": TEMPERATURE if DO_SAMPLE else None,
             "top_p": TOP_P if DO_SAMPLE else None,
             "gen_seed": GEN_SEED,
+            "round_size": ROUND_SIZE,
+            "max_rounds": MAX_ROUNDS,
+            "sampling_mode": "round-based with prompt history (avoid-list conditioning)",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "system_prompt": system_prompt,
             "warmstart_source": str(WARMSTART_FILE),

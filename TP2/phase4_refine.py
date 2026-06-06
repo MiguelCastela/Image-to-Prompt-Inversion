@@ -40,11 +40,20 @@ Output: phase4_results.json   – every rendered candidate, metrics + Borda rank
         Winning renders copied to outputs/phase4_top3/
 """
 
+import argparse
 import csv
+import gc
 import json
+import os
+import shutil
 import statistics
+import subprocess
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import torch
 from tqdm import tqdm
@@ -69,21 +78,29 @@ from phase3_render_score import (
 WARMSTART_FILE  = Path("phase1_warmstart.json")    # from phase1_interrogate.py
 PHASE1_CAPTIONS = Path("phase1_captions.json")     # BLIP-2 subject + caption
 
-OUTPUT_DIR    = Path("outputs/phase4")
-TOP3_DIR      = Path("outputs/phase4_top3")
-RESULTS_FILE  = Path("phase4_results.json")
-TOP3_JSON     = Path("phase4_top3.json")
-TOP3_CSV      = Path("phase4_top3.csv")
-BRANCHES_FILE = Path("phase4_branches.json")
-SUMMARY_FILE  = Path("phase4_summary.json")
+# P4_TAG suffixes all outputs so a smoke/test run doesn't clobber the real one.
+TAG = os.environ.get("P4_TAG", "")
+
+OUTPUT_DIR    = Path(f"outputs/phase4{TAG}")
+TOP3_DIR      = Path(f"outputs/phase4{TAG}_top3")
+RESULTS_FILE  = Path(f"phase4{TAG}_results.json")
+TOP3_JSON     = Path(f"phase4{TAG}_top3.json")
+TOP3_CSV      = Path(f"phase4{TAG}_top3.csv")
+BRANCHES_FILE = Path(f"phase4{TAG}_branches.json")
+SUMMARY_FILE  = Path(f"phase4{TAG}_summary.json")
+CHECKPOINT_FILE = Path(f"phase4{TAG}_checkpoint.json")   # resume after a crash/shutdown
 
 QWEN_MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
 
-N_ITERATIONS = 12     # refinement steps per branch
-N_PROPOSALS  = 5      # prompts Qwen proposes per iteration
+# Key knobs are env-overridable (so subprocess workers and smoke runs share them).
+N_ITERATIONS = int(os.environ.get("P4_ITERS", "12"))      # refinement steps per branch
+N_PROPOSALS  = int(os.environ.get("P4_PROPOSALS", "5"))   # prompts proposed per iter
 BEAM_WIDTH   = 3      # survivors carried to the next iteration
 TOP_K        = 3      # prompts submitted per image
-MAX_NEW_TOKENS = 1024
+# 5 short prompts fit in ~250 tokens; capping avoids the model rambling to 1024
+# (which dominated generation time). Env-overridable.
+MAX_NEW_TOKENS = int(os.environ.get("P4_MAXTOK", "320"))
+VLM_IMAGE_PX = 512    # downscale images shown to Qwen (VRAM headroom)
 
 # Sampling for the proposal step: temperature > 0 is required for the N_PROPOSALS
 # variants (and successive iterations) to differ. GEN_SEED fixes the RNG once at
@@ -104,6 +121,10 @@ BRANCHES = {
     "mse":       "Prioritise exact pixel match — get colours, brightness and the spatial layout/position precisely right.",
     "composite": "Balance semantic, perceptual and exact-pixel similarity to the target.",
 }
+# P4_BRANCHES (comma list) optionally restricts which branches run.
+if os.environ.get("P4_BRANCHES"):
+    _keep = {b.strip() for b in os.environ["P4_BRANCHES"].split(",")}
+    BRANCHES = {k: v for k, v in BRANCHES.items() if k in _keep}
 
 # Negative prompt is loaded via phase3's load_negative_prompt() (clip-interrogator
 # negative.txt, comma-joined). CFG is on at guidance 8.0, so it is active.
@@ -156,6 +177,14 @@ def build_user_text(
     )
 
 
+def _vlm_image(path: Path):
+    """Downscale an image for the VLM (fewer vision tokens -> less VRAM)."""
+    from PIL import Image
+    im = Image.open(path).convert("RGB")
+    im.thumbnail((VLM_IMAGE_PX, VLM_IMAGE_PX))
+    return im
+
+
 def qwen_propose(
     model, processor, target_path: Path, gen_path: Path, user_text: str, n: int
 ) -> list[str]:
@@ -166,8 +195,8 @@ def qwen_propose(
         {
             "role": "user",
             "content": [
-                {"type": "image", "image": target_path.resolve().as_uri()},
-                {"type": "image", "image": gen_path.resolve().as_uri()},
+                {"type": "image", "image": _vlm_image(target_path)},
+                {"type": "image", "image": _vlm_image(gen_path)},
                 {"type": "text", "text": user_text},
             ],
         },
@@ -224,110 +253,46 @@ def select_best(branch: str, pool: list[dict], k: int) -> list[dict]:
 # ── Per-image refinement ────────────────────────────────────────────────────────
 
 def score_prompt(
-    prompt, seed, neg, pipe, device, target_path, out_dir, tag, candidate_index
+    prompt, seed, neg, pipe, device, target_path, render_path, branch, iteration, idx
 ) -> dict:
-    img_path = out_dir / f"{tag}.png"
-    if not img_path.exists():
-        render(prompt, seed, pipe, device, negative_prompt=neg).save(img_path)
-    metrics = evaluate_candidate(target_path, img_path)
+    if not render_path.exists():
+        render(prompt, seed, pipe, device, negative_prompt=neg).save(render_path)
+    metrics = evaluate_candidate(target_path, render_path)
     return {
         "target": str(target_path),
         "target_name": target_path.name,
         "render_seed": seed,
-        "candidate_index": candidate_index,
+        "candidate_index": idx,
+        "branch": branch,
+        "iteration": iteration,
         "prompt": prompt,
-        "render": str(img_path),
+        "render": str(render_path),
         **metrics,
     }
 
 
-def refine_image(
-    image_name, target_path, warm_prompt, subject, style_hint, neg,
-    pipe, device, model, processor,
-) -> tuple[list[dict], dict]:
-    """Run all four branches for one image. Returns (pooled candidates, branch bests)."""
-    stem = Path(image_name).stem
-    seed = seed_from_filename(target_path)
-    base_dir = OUTPUT_DIR / stem
-    base_dir.mkdir(parents=True, exist_ok=True)
+def free_gpu():
+    """Release GPU memory. Caller must `del` its own references FIRST — deleting
+    a parameter here wouldn't drop the caller's binding."""
+    gc.collect()
+    torch.cuda.empty_cache()
 
-    print(f"\n══ {image_name}  (seed={seed}) ══")
-    print(f"   warm: {warm_prompt}")
-    print(f"   neg : {neg}")
 
-    counter = {"i": 0}
-    def next_idx() -> int:
-        counter["i"] += 1
-        return counter["i"]
+def save_checkpoint(state, proposals):
+    data = {
+        "pool_by_image": {n: s["pool"] for n, s in state.items()},
+        "proposals": proposals,
+    }
+    tmp = CHECKPOINT_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False))
+    tmp.replace(CHECKPOINT_FILE)   # atomic: a power-off won't corrupt the file
 
-    pool: list[dict] = []          # every candidate rendered for this image
-    seen_prompts: set[str] = set()
 
-    # Warm-start render is shared across branches (same prompt, seed, negative).
-    warm_dir = base_dir / "_warm"
-    warm_dir.mkdir(parents=True, exist_ok=True)
-    warm_row = score_prompt(
-        warm_prompt, seed, neg, pipe, device, target_path, warm_dir,
-        "warm", next_idx(),
-    )
-    warm_row["branch"] = "warm"
-    warm_row["iteration"] = 0
-    pool.append(warm_row)
-    seen_prompts.add(warm_prompt)
-
-    branch_best: dict[str, dict] = {}
-
-    for branch, objective in BRANCHES.items():
-        bdir = base_dir / branch
-        bdir.mkdir(parents=True, exist_ok=True)
-        beam = [warm_row]                 # start every branch from the warm start
-        tried = [warm_prompt]
-        branch_pool = [warm_row]
-
-        for it in range(1, N_ITERATIONS + 1):
-            current = select_best(branch, branch_pool, 1)[0]
-            user_text = build_user_text(
-                subject, style_hint, objective,
-                current["prompt"], current, tried, N_PROPOSALS,
-            )
-            proposals = qwen_propose(
-                model, processor, target_path, Path(current["render"]),
-                user_text, N_PROPOSALS,
-            )
-            # Drop empties / exact repeats.
-            proposals = [p for p in proposals if p and p not in seen_prompts]
-
-            for j, prompt in enumerate(proposals, start=1):
-                row = score_prompt(
-                    prompt, seed, neg, pipe, device, target_path, bdir,
-                    f"iter{it:02d}_{j:02d}", next_idx(),
-                )
-                row["branch"] = branch
-                row["iteration"] = it
-                pool.append(row)
-                branch_pool.append(row)
-                seen_prompts.add(prompt)
-                tried.append(prompt)
-
-            beam = select_best(branch, branch_pool, BEAM_WIDTH)
-            top = beam[0]
-            print(
-                f"   [{branch:9s}] iter {it:2d}/{N_ITERATIONS}  "
-                f"+{len(proposals)} cand  best: CLIP={top['clip_similarity']:.4f} "
-                f"LPIPS={top['lpips']:.4f} MSE={top['pixel_mse']:.5f}"
-            )
-
-        best = select_best(branch, branch_pool, 1)[0]
-        branch_best[branch] = {
-            "prompt": best["prompt"],
-            "render": best["render"],
-            "clip_similarity": round(best["clip_similarity"], 6),
-            "lpips": round(best["lpips"], 6),
-            "pixel_mse": round(best["pixel_mse"], 6),
-            "pixel_rmse": round(best["pixel_rmse"], 6),
-        }
-
-    return pool, branch_best
+def load_checkpoint():
+    if CHECKPOINT_FILE.exists():
+        d = json.loads(CHECKPOINT_FILE.read_text())
+        return d.get("pool_by_image", {}), d.get("proposals", {})
+    return {}, {}
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -358,7 +323,13 @@ def load_warmstarts() -> dict:
     }
 
 
-def main():
+def branch_pool(pool: list[dict], branch: str) -> list[dict]:
+    """Candidates a branch selects over: its own rows plus the shared warm start."""
+    return [r for r in pool if r["branch"] in ("warm", branch)]
+
+
+def build_state() -> dict:
+    """Static per-image info (no pool). Workers rebuild this deterministically."""
     warmstarts = load_warmstarts()
     captions = (json.loads(PHASE1_CAPTIONS.read_text())
                 if PHASE1_CAPTIONS.exists() else {})
@@ -366,58 +337,131 @@ def main():
         p.name: p for p in TARGET_DIR.rglob("*")
         if p.suffix.lower() in IMAGE_EXTENSIONS
     }
+    limit = int(os.environ.get("P4_LIMIT", "0"))   # 0 = all images
+    state = {}
+    for i, (name, ws) in enumerate(warmstarts.items()):
+        if limit and i >= limit:
+            break
+        tp = target_by_name.get(name)
+        if tp is None:
+            continue
+        cap = captions.get(name, {})
+        base = OUTPUT_DIR / Path(name).stem
+        for b in list(BRANCHES) + ["_warm"]:
+            (base / b).mkdir(parents=True, exist_ok=True)
+        state[name] = {
+            "target_path": tp,
+            "seed": seed_from_filename(tp),
+            "subject": ws.get("subject") or cap.get("subject", ""),
+            "style_hint": ws.get("ci") or cap.get("base_caption", ""),
+            "warm_prompt": ws["warm"],
+            "base": base,
+            "pool": [],
+        }
+    return state
 
+
+def _load_state_with_pools():
+    state = build_state()
+    saved_pools, proposals = load_checkpoint()
+    for name in state:
+        state[name]["pool"] = saved_pools.get(name, [])
+    return state, proposals
+
+
+# ── Worker: render phase (own process → clean GPU, pipe gets full VRAM) ─────────
+
+def run_render(t: int):
+    state, proposals = _load_state_with_pools()
     device = default_device()
-    print(f"Device: {device}")
-    from transformers import set_seed
-    set_seed(GEN_SEED)   # reproducible temperature sampling for the whole run
-    print(f"Sampling: do_sample={DO_SAMPLE} temperature={TEMPERATURE} "
-          f"top_p={TOP_P} seed={GEN_SEED}")
     negative = load_negative_prompt()
-    print(f"Negative prompt ({negative.count(',') + 1 if negative else 0} terms "
-          f"from clip-interrogator negative.txt): {negative}")
+    done = {r["render"] for s in state.values() for r in s["pool"]}
     pipe = load_pipeline(device)
-    model, processor = load_qwen(QWEN_MODEL_ID)
+    for name, s in state.items():
+        if t == 0:   # warm-start render
+            if any(r["branch"] == "warm" for r in s["pool"]):
+                continue
+            rp = s["base"] / "_warm" / "warm.png"
+            row = score_prompt(s["warm_prompt"], s["seed"], negative, pipe, device,
+                               s["target_path"], rp, "warm", 0, len(s["pool"]) + 1)
+            s["pool"].append(row); done.add(row["render"])
+            print(f"   warm {name}: CLIP={row['clip_similarity']:.4f}", flush=True)
+            continue
+        for b in BRANCHES:
+            seen = {r["prompt"] for r in s["pool"]}
+            for j, prompt in enumerate(proposals.get(f"{name}|{b}|{t}", []), start=1):
+                rp = s["base"] / b / f"iter{t:02d}_{j:02d}.png"
+                if str(rp) in done or not prompt or prompt in seen:
+                    continue
+                row = score_prompt(prompt, s["seed"], negative, pipe, device,
+                                   s["target_path"], rp, b, t, len(s["pool"]) + 1)
+                s["pool"].append(row); done.add(row["render"]); seen.add(prompt)
+        tops = " ".join(
+            f"{b}={select_best(b, branch_pool(s['pool'], b), 1)[0]['clip_similarity']:.3f}"
+            for b in BRANCHES)
+        print(f"   iter {t} {name}: CLIP best -> {tops}", flush=True)
+    save_checkpoint(state, proposals)
 
+
+# ── Worker: propose phase (own process → Qwen gets full VRAM, uncapped) ─────────
+
+def run_propose(t: int):
+    state, proposals = _load_state_with_pools()
+    model, processor = load_qwen(QWEN_MODEL_ID)
+    for name, s in state.items():
+        for b in BRANCHES:
+            key = f"{name}|{b}|{t}"
+            if key in proposals:
+                continue
+            bp = branch_pool(s["pool"], b)
+            current = select_best(b, bp, 1)[0]
+            tried = [r["prompt"] for r in bp]
+            ut = build_user_text(s["subject"], s["style_hint"], BRANCHES[b],
+                                 current["prompt"], current, tried, N_PROPOSALS)
+            proposals[key] = qwen_propose(
+                model, processor, s["target_path"], Path(current["render"]),
+                ut, N_PROPOSALS)
+            print(f"   iter {t} {name} [{b}]: {len(proposals[key])} proposals", flush=True)
+            save_checkpoint(state, proposals)
+
+
+# ── Orchestrator: run each phase as a subprocess (clean GPU every time) ─────────
+
+def _run_phase(worker: str, t: int):
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--worker", worker, "--iter", str(t)]
+    print(f"\n>>> {worker} iter {t} (subprocess)", flush=True)
+    res = subprocess.run(cmd, env=os.environ.copy())
+    if res.returncode != 0:
+        raise SystemExit(f"{worker} iter {t} failed (exit {res.returncode}); "
+                         f"checkpoint preserved — re-run to resume.")
+
+
+def finalize():
+    state, _ = _load_state_with_pools()
+    device = default_device()
     all_results: dict[str, list[dict]] = {}
     all_branches: dict[str, dict] = {}
+    for name, s in state.items():
+        pool = list(s["pool"])
+        attach_ranks(pool)
+        all_results[name] = pool
+        all_branches[name] = {}
+        for b in BRANCHES:
+            best = select_best(b, branch_pool(pool, b), 1)[0]
+            all_branches[name][b] = {
+                "prompt": best["prompt"], "render": best["render"],
+                "clip_similarity": round(best["clip_similarity"], 6),
+                "lpips": round(best["lpips"], 6),
+                "pixel_mse": round(best["pixel_mse"], 6),
+                "pixel_rmse": round(best["pixel_rmse"], 6),
+            }
 
-    for image_name, ws in warmstarts.items():
-        target_path = target_by_name.get(image_name)
-        if target_path is None:
-            print(f"Skipping unknown target: {image_name}")
-            continue
-        warm_prompt = ws["warm"]
-        cap = captions.get(image_name, {})
-        # Subject = BLIP-2 (what the thing is); style hint = clip-interrogator
-        # output (how it looks). Fall back to the BLIP-2 caption if no CI text.
-        subject = ws.get("subject") or cap.get("subject", "")
-        style_hint = ws.get("ci") or cap.get("base_caption", "")
-
-        pool, branch_best = refine_image(
-            image_name, target_path, warm_prompt, subject, style_hint, negative,
-            pipe, device, model, processor,
-        )
-        attach_ranks(pool)            # Borda composite over the whole pool
-        all_results[image_name] = pool
-        all_branches[image_name] = branch_best
-
-        print("   Submitted top-3 (Borda composite over all branches):")
-        for r in pool[:TOP_K]:
-            print(
-                f"     [{r['branch']:9s} #{r['candidate_index']:3d}] "
-                f"comp={r['rank_composite']:.2f}  CLIP={r['clip_similarity']:.4f} "
-                f"LPIPS={r['lpips']:.4f}  MSE={r['pixel_mse']:.5f}"
-            )
-
-    # ── Persist full results ──────────────────────────────────────────────────
     RESULTS_FILE.write_text(json.dumps(all_results, indent=2, ensure_ascii=False))
     BRANCHES_FILE.write_text(json.dumps(all_branches, indent=2, ensure_ascii=False))
     print(f"\nSaved all candidates + ranks to {RESULTS_FILE}")
     print(f"Saved per-branch winners to {BRANCHES_FILE}")
 
     # ── Deliverable: top-3 per image (Borda composite, same format as phase 3) ──
-    import shutil
     TOP3_DIR.mkdir(parents=True, exist_ok=True)
     top3_rows: list[dict] = []
     for image_name, rows in all_results.items():
@@ -463,6 +507,33 @@ def main():
     summary["metadata"]["gen_seed"] = GEN_SEED
     SUMMARY_FILE.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
     print(f"Saved report summary to {SUMMARY_FILE}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--worker", choices=["propose", "render"])
+    ap.add_argument("--iter", type=int, default=0)
+    args = ap.parse_args()
+
+    # Worker mode: do one phase in this (fresh) process, then exit → GPU freed.
+    if args.worker == "propose":
+        run_propose(args.iter)
+        return
+    if args.worker == "render":
+        run_render(args.iter)
+        return
+
+    # Orchestrator: run each phase as its own subprocess so the VLM and the
+    # diffusion pipeline never share VRAM and each starts with a clean CUDA
+    # context. Everything flows through the checkpoint, so a crash/power-off
+    # just means "re-run to resume".
+    print(f"Phase 4 closed-loop: {len(BRANCHES)} branches x {N_ITERATIONS} iters")
+    _run_phase("render", 0)                       # warm-start renders
+    for t in range(1, N_ITERATIONS + 1):
+        _run_phase("propose", t)
+        _run_phase("render", t)
+    finalize()
+    print("\nDONE.")
 
 
 if __name__ == "__main__":
