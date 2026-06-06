@@ -72,6 +72,20 @@ def seed_from_filename(path: Path, fallback: int = FALLBACK_SEED) -> int:
     return int(match.group(1)) if match else fallback
 
 
+def load_negative_prompt() -> str:
+    """Negative prompt from clip-interrogator's negative.txt, comma-joined.
+    Same negative for every image. Empty string if the package is missing."""
+    try:
+        import clip_interrogator
+    except ImportError:
+        print("  ! clip-interrogator not installed — rendering with no negative prompt.")
+        return ""
+    data_dir = Path(clip_interrogator.__file__).parent / "data"
+    lines = [l.strip() for l in (data_dir / "negative.txt").read_text().splitlines()
+             if l.strip()]
+    return ", ".join(lines)
+
+
 def default_device() -> str:
     if torch.cuda.is_available():
         return "cuda"
@@ -96,11 +110,16 @@ def load_pipeline(device: str):
     return pipe
 
 
-def render(prompt: str, seed: int, pipe, device: str) -> Image.Image:
+def render(
+    prompt: str, seed: int, pipe, device: str, negative_prompt: str = ""
+) -> Image.Image:
     generator_device = "cpu" if device == "mps" else device
     generator = torch.Generator(device=generator_device).manual_seed(seed)
     return pipe(
         prompt=prompt,
+        # guidance_scale 8.0 (>1) keeps classifier-free guidance on, so the
+        # negative prompt is active. Empty string -> None (no negative).
+        negative_prompt=negative_prompt or None,
         num_inference_steps=NUM_INFERENCE_STEPS,
         guidance_scale=GUIDANCE_SCALE,
         # diffusers renamed lcm_origin_steps -> original_inference_steps; the old
@@ -281,6 +300,8 @@ def main():
 
     device = default_device()
     print(f"Device: {device}")
+    negative = load_negative_prompt()
+    print(f"Negative prompt: {negative}")
     pipe = load_pipeline(device)
 
     all_results: dict[str, list[dict]] = {}
@@ -301,7 +322,7 @@ def main():
         for i, prompt in enumerate(tqdm(prompts, desc=image_name), start=1):
             img_path = out_dir / f"candidate_{i:03d}.png"
             if not img_path.exists():
-                render(prompt, seed, pipe, device).save(img_path)
+                render(prompt, seed, pipe, device, negative_prompt=negative).save(img_path)
 
             metrics = evaluate_candidate(target_path, img_path)
             rows.append({

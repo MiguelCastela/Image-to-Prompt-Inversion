@@ -1,15 +1,18 @@
 """
-Phase 2 – Prompt Sampling: VLM-based prompt expansion.
+Phase 2 – Prompt Sampling: open-loop VLM prompt expansion (baseline).
 
-Each target image is shown directly to the VLM together with the Phase 1
-CLIP scores and BLIP-2 caption as additional context. The model generates
-N_VARIATIONS diverse DreamShaper-style prompt candidates per image.
+Each target image is shown directly to the VLM together with the warm-start
+context: the BLIP-2 subject/caption and the clip-interrogator style string. The
+model generates N_VARIATIONS diverse DreamShaper-style prompt candidates per
+image in one pass. This is the open-loop baseline; Phase 4 adds the closed-loop
+render/score feedback on top of the same warm start.
 
 Backends (switch via BACKEND constant):
   qwen   – Qwen/Qwen2.5-VL-7B-Instruct-AWQ  (local, 4-bit AWQ, runs on RTX)
   claude – claude-opus-4-8                    (Anthropic API, for comparison)
 
-Input:  phase1_clip.json, phase1_captions.json, target images in TARGET_DIR
+Input:  phase1_warmstart.json (from phase1_interrogate.py), phase1_captions.json,
+        target images in TARGET_DIR
 Output: phase2_candidates.json  (image_name -> list[str])
 """
 
@@ -22,7 +25,7 @@ from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-PHASE1_CLIP     = Path("phase1_clip.json")
+WARMSTART_FILE  = Path("phase1_warmstart.json")    # from phase1_interrogate.py
 PHASE1_CAPTIONS = Path("phase1_captions.json")
 TARGET_DIR      = Path("statement/TP2-students/students/tp2-chosen")
 OUTPUT_FILE     = Path("phase2_candidates.json")   # pipeline input for phase 3
@@ -33,36 +36,39 @@ QWEN_MODEL_ID   = "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
 CLAUDE_MODEL_ID = "claude-opus-4-8"
 N_VARIATIONS    = 30
 MAX_NEW_TOKENS  = 4096
-DO_SAMPLE       = False
+
+# Sampling: greedy decoding collapses the N variations toward near-duplicates,
+# so sample with a moderate temperature for diversity. Reproducibility is kept
+# by fixing GEN_SEED before generation (logged in phase2_full.json), not by
+# greedy decoding.
+DO_SAMPLE   = True
+TEMPERATURE = 0.7
+TOP_P       = 0.9
+GEN_SEED    = 1234
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-CLIP_COMPONENTS  = ["medium", "artist_style", "flavor", "lighting", "camera_angle"]
 
 
 # ── Shared prompt ─────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """\
-You are an expert prompt engineer for Stable Diffusion image generators, \
-specifically DreamShaper v7 running with LCM sampling (8 inference steps, \
-guidance scale 8.0, fixed random seed).
+You are a prompt engineer for the DreamShaper v7 Stable Diffusion model (LCM \
+sampling, 8 inference steps, guidance scale 8.0, fixed random seed).
 
-Your task: given a target image and its analysis, generate exactly {n} diverse \
-prompt variations. These will be rendered with a fixed random seed and compared \
-pixel-by-pixel against the original. Closer pixels = better score.
+Given a TARGET image and its analysis, write exactly {n} diverse prompts that, \
+when rendered, reproduce the target as closely as possible. Each render is \
+compared against the target, so every prompt must depict the SAME target.
 
-Rules for high-scoring DreamShaper v7 prompts:
-- Put the strongest semantic tokens FIRST (subject, then style descriptors)
-- Include quality boosters: masterpiece, best quality, highly detailed, sharp focus, 8k
-- Vary artist references across variations: artgerm, Greg Rutkowski, WLOP, \
-Alphonse Mucha, Makoto Shinkai, Ross Tran, Charlie Bowater, Ilya Kuvshinov
-- Vary medium: digital painting, oil painting, concept art, anime, 3D render, \
-photorealistic, watercolour, fantasy illustration
-- Vary lighting: volumetric lighting, studio lighting, dramatic cinematic lighting, \
-golden hour, rim lighting, ambient occlusion, neon lighting
-- Vary composition: close-up portrait, medium shot, full body, wide angle, \
-bokeh, depth of field, rule of thirds
-- Try different token orderings — earlier tokens have stronger CLIP influence
-- Use comma-separated format; no full sentences
+Rules:
+- Describe ONLY what is visible in the target: subject, colours, composition, \
+background, style, lighting.
+- Put the SUBJECT first — it is the most important token.
+- Treat the BLIP-2 text as the SUBJECT (what the thing is) and the \
+clip-interrogator text as the STYLE / medium (how it looks).
+- Do NOT invent artists, people, or content that is not implied by the target.
+- Vary the wording, token ordering, and emphasis across the {n} prompts so they \
+explore the space — but every prompt must still depict the same target.
+- Use short comma-separated tags, not full sentences. Keep each prompt under 30 words.
 
 Output EXACTLY {n} prompts, numbered "1." through "{n}.". No preamble or commentary.\
 """
@@ -70,26 +76,17 @@ Output EXACTLY {n} prompts, numbered "1." through "{n}.". No preamble or comment
 
 # ── Context helpers ───────────────────────────────────────────────────────────
 
-def _fmt_component(comp: dict) -> str:
-    return ", ".join(
-        f"{label} ({score:.3f})"
-        for label, score in comp.get("scores", {}).items()
-    )
-
-
-def build_text_context(clip: dict, blip_caption: str, blip_subject: str) -> str:
-    clip_lines = "\n".join(
-        f"  {comp}: {_fmt_component(clip[comp])}"
-        for comp in CLIP_COMPONENTS
-        if comp in clip
-    )
-    blip_lines = f"  {blip_caption}"
-    if blip_subject:
-        blip_lines += f"\n  subject: {blip_subject}"
-    return (
-        f"CLIP (label: cosine similarity):\n{clip_lines}\n\n"
-        f"BLIP-2 (free-text caption):\n{blip_lines}"
-    )
+def build_text_context(subject: str, ci_style: str, blip_caption: str) -> str:
+    """Context from the warm start: BLIP-2 subject/caption + clip-interrogator
+    style string, labelled so the VLM keeps subject and style distinct."""
+    lines = []
+    if subject:
+        lines.append(f"SUBJECT (BLIP-2, what the thing is): {subject}")
+    if blip_caption:
+        lines.append(f"BLIP-2 caption: {blip_caption}")
+    if ci_style:
+        lines.append(f"STYLE / medium (clip-interrogator): {ci_style}")
+    return "\n".join(lines)
 
 
 # The VLM sometimes echoes the analysis field labels into a prompt, e.g.
@@ -200,10 +197,11 @@ def generate_qwen(
         return_tensors="pt",
     ).to(model.device)
 
+    gen_kwargs = {"max_new_tokens": MAX_NEW_TOKENS, "do_sample": DO_SAMPLE}
+    if DO_SAMPLE:
+        gen_kwargs.update(temperature=TEMPERATURE, top_p=TOP_P)
     with torch.no_grad():
-        generated_ids = model.generate(
-            **inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=DO_SAMPLE
-        )
+        generated_ids = model.generate(**inputs, **gen_kwargs)
 
     trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated_ids)]
     output = processor.batch_decode(trimmed, skip_special_tokens=True)[0]
@@ -253,7 +251,7 @@ def generate_claude(
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    clip_data    = json.loads(PHASE1_CLIP.read_text())
+    warmstarts   = json.loads(WARMSTART_FILE.read_text())
     caption_data = json.loads(PHASE1_CAPTIONS.read_text())
 
     target_by_name = {
@@ -265,6 +263,11 @@ def main():
     if BACKEND == "qwen":
         model, processor = load_qwen(QWEN_MODEL_ID)
         client = None
+        # Fix the RNG so temperature sampling is reproducible for the report.
+        from transformers import set_seed
+        set_seed(GEN_SEED)
+        print(f"Sampling: do_sample={DO_SAMPLE} temperature={TEMPERATURE} "
+              f"top_p={TOP_P} seed={GEN_SEED}")
     else:
         model = processor = None
         client = load_claude()
@@ -275,17 +278,23 @@ def main():
     results: dict[str, list[str]] = {}            # phase-3 input (name -> prompts)
     full: dict[str, dict] = {}                     # rich per-image record for report
 
-    for image_name in clip_data:
+    for image_name, ws in warmstarts.items():
         target_path = target_by_name.get(image_name)
         if target_path is None:
             print(f"Skipping {image_name}: target image not found")
             continue
 
         print(f"\n── {image_name} ──")
+        cap = caption_data.get(image_name, {})
+        # Warm start stores {warm, ci, subject}; tolerate the legacy plain string.
+        if isinstance(ws, dict):
+            subject  = ws.get("subject") or cap.get("subject", "")
+            ci_style = ws.get("ci", "")
+        else:
+            subject  = cap.get("subject", "")
+            ci_style = ws
         context = build_text_context(
-            clip_data[image_name],
-            caption_data.get(image_name, {}).get("base_caption", ""),
-            caption_data.get(image_name, {}).get("subject", ""),
+            subject, ci_style, cap.get("base_caption", ""),
         )
 
         if BACKEND == "qwen":
@@ -323,9 +332,12 @@ def main():
             "n_variations": N_VARIATIONS,
             "max_new_tokens": MAX_NEW_TOKENS,
             "do_sample": DO_SAMPLE,
+            "temperature": TEMPERATURE if DO_SAMPLE else None,
+            "top_p": TOP_P if DO_SAMPLE else None,
+            "gen_seed": GEN_SEED,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "system_prompt": system_prompt,
-            "clip_components": CLIP_COMPONENTS,
+            "warmstart_source": str(WARMSTART_FILE),
             "n_images": len(full),
             "n_total_candidates": total,
         },
