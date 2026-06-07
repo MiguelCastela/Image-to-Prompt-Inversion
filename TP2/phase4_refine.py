@@ -43,6 +43,7 @@ Output: phase4_results.json   – every rendered candidate, metrics + Borda rank
 import argparse
 import csv
 import gc
+import hashlib
 import json
 import os
 import shutil
@@ -114,12 +115,35 @@ PROPOSE_MAX_CALLS = int(os.environ.get("P4_MAXCALLS", "6"))
 IMG_DEDUP_MAX_HAM = int(os.environ.get("P4_IMG_HAM", "5"))
 
 # Sampling for the proposal step: temperature > 0 is required for the N_PROPOSALS
-# variants (and successive iterations) to differ. GEN_SEED fixes the RNG once at
-# the start of the run so the whole sequence is reproducible.
+# variants (and successive iterations) to differ. Each VLM call uses a distinct,
+# reproducible seed (derived from image/branch/call), and the temperature is
+# escalated while calls keep returning nothing new (the model's distribution is
+# peaked once the subject is described; raising temperature is what produces
+# genuinely different prompts instead of re-offering the avoid-listed ones).
 DO_SAMPLE   = True
-TEMPERATURE = 0.7
-TOP_P       = 0.9
+TEMPERATURE = 0.8
+TOP_P       = 0.95
 GEN_SEED    = 1234
+DIVERSITY_TEMP_STEP = float(os.environ.get("P4_TEMP_STEP", "0.25"))   # +per stale call
+DIVERSITY_TEMP_MAX  = float(os.environ.get("P4_TEMP_MAX", "1.3"))
+
+# Each proposal call is nudged to vary one description axis, rotating per call, so
+# the batch spreads out instead of clustering on the same phrasing.
+DIVERSITY_AXES = [
+    "the subject's form, pose and salient details",
+    "the colour palette and saturation",
+    "the lighting, contrast and time of day",
+    "the composition, framing and camera angle",
+    "the artistic medium and rendering style",
+    "the background and surrounding context",
+]
+
+# Both the LCM text encoder and the CLIP scorer cap at 77 tokens (~75 usable);
+# anything past that is silently ignored. Prompts are capped shorter so every
+# token is in the visible budget and tail-only edits collapse to one prompt.
+CLIP_MODEL_NAME    = "openai/clip-vit-large-patch14"
+CLIP_PROMPT_TOKENS = int(os.environ.get("P4_CLIP_TOKENS", "60"))
+_CLIP_TOKENIZER = None
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
@@ -153,8 +177,12 @@ Rules:
 - Describe ONLY what is visible in the TARGET: subject, colours, composition, \
 background, style, lighting. Never invent content or artists not implied by the target.
 - Put the SUBJECT first — it is the most important token.
-- Use short comma-separated tags, not full sentences. Keep each prompt under 30 words.
-- Make the variations genuinely different from each other and from prompts already tried.
+- Use short comma-separated tags, not full sentences. Keep each prompt within ~60 \
+CLIP tokens (about 18 short tags); the renderer ignores anything past that, so do \
+not pad with trailing detail.
+- Make the variations genuinely different from each other and from prompts already \
+tried: change the SUBJECT wording, palette, lighting, composition or medium — never \
+just append or swap a trailing adjective.
 
 Output EXACTLY {n} prompts, numbered "1." through "{n}.". No preamble, no commentary."""
 
@@ -167,11 +195,13 @@ def build_user_text(
     metrics: dict,
     tried: list[str],
     n: int,
+    axis: str = "",
 ) -> str:
     """User-message text: states subject (BLIP-2) vs style (CI) roles explicitly,
     the current scores, the branch objective, and what's already been tried."""
     tried_block = "\n".join(f"  - {p}" for p in tried[-20:]) or "  (none yet)"
     style_line = f"\nSTYLE / medium hints (clip-interrogator): {style_hint}" if style_hint else ""
+    axis_line = f"\nFor THIS set, especially vary how you describe: {axis}." if axis else ""
     return (
         f"SUBJECT of the target (from BLIP-2, treat as the main object/scene): "
         f"{subject or 'unknown'}"
@@ -181,11 +211,28 @@ def build_user_text(
         f"Current similarity scores (higher CLIP = better; lower LPIPS / MSE = better):\n"
         f"  CLIP={metrics['clip_similarity']:.4f}  "
         f"LPIPS={metrics['lpips']:.4f}  MSE={metrics['pixel_mse']:.5f}\n\n"
-        f"Objective for these variations: {objective}\n\n"
+        f"Objective for these variations: {objective}{axis_line}\n\n"
         f"Prompts already tried (do NOT repeat these):\n{tried_block}\n\n"
         f"Treat the BLIP-2 SUBJECT as what the thing IS, and the clip-interrogator "
         f"text as how it LOOKS (style/medium). Generate {n} improved, distinct prompts."
     )
+
+
+def clip_truncate(prompt: str, max_tokens: int = CLIP_PROMPT_TOKENS) -> str:
+    """Truncate a prompt to at most max_tokens CLIP tokens. The LCM text encoder
+    and the CLIP scorer both cap at 77 tokens; capping shorter keeps every token
+    visible and makes dedup honest (edits past the cap collapse to one prompt)."""
+    global _CLIP_TOKENIZER
+    p = " ".join((prompt or "").split())
+    if not p:
+        return p
+    if _CLIP_TOKENIZER is None:
+        from transformers import CLIPTokenizerFast
+        _CLIP_TOKENIZER = CLIPTokenizerFast.from_pretrained(CLIP_MODEL_NAME)
+    ids = _CLIP_TOKENIZER(p, add_special_tokens=False)["input_ids"]
+    if len(ids) <= max_tokens:
+        return p
+    return _CLIP_TOKENIZER.decode(ids[:max_tokens]).strip().rstrip(",.;: ").strip()
 
 
 def _vlm_image(path: Path):
@@ -217,7 +264,8 @@ def _hamming(a, b) -> int:
 
 
 def qwen_propose(
-    model, processor, target_path: Path, gen_path: Path, user_text: str, n: int
+    model, processor, target_path: Path, gen_path: Path, user_text: str, n: int,
+    temperature: float = TEMPERATURE, seed: int | None = None,
 ) -> list[str]:
     from qwen_vl_utils import process_vision_info
 
@@ -242,12 +290,18 @@ def qwen_propose(
     ).to(model.device)
     gen_kwargs = {"max_new_tokens": MAX_NEW_TOKENS, "do_sample": DO_SAMPLE}
     if DO_SAMPLE:
-        gen_kwargs.update(temperature=TEMPERATURE, top_p=TOP_P)
+        gen_kwargs.update(temperature=temperature, top_p=TOP_P)
+        if seed is not None:
+            torch.manual_seed(seed)
     with torch.no_grad():
         generated_ids = model.generate(**inputs, **gen_kwargs)
     trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated_ids)]
     output = processor.batch_decode(trimmed, skip_special_tokens=True)[0]
-    return parse_numbered_list(output, n)
+    parsed = parse_numbered_list(output, n)
+    if not parsed:
+        print(f"   [warn] {target_path.name}: no prompts parsed from VLM output: "
+              f"{output[:200]!r}", flush=True)
+    return parsed
 
 
 def collect_proposals(model, processor, name, s, b, proposals) -> list[str]:
@@ -266,15 +320,24 @@ def collect_proposals(model, processor, name, s, b, proposals) -> list[str]:
     collected: list[str] = []
     collected_norm: set[str] = set()
     stale = 0
-    for _ in range(PROPOSE_MAX_CALLS):
+    for call in range(PROPOSE_MAX_CALLS):
         if len(collected) >= N_PROPOSALS:
             break
+        # Escalate temperature while we keep getting nothing new; rotate the axis
+        # nudge per call. Seed is reproducible but distinct per (image, branch, call).
+        temperature = min(TEMPERATURE + DIVERSITY_TEMP_STEP * stale, DIVERSITY_TEMP_MAX)
+        axis = DIVERSITY_AXES[call % len(DIVERSITY_AXES)]
+        seed = GEN_SEED + int.from_bytes(
+            hashlib.md5(f"{name}|{b}|{call}".encode()).digest()[:4], "big") % 1_000_000
         ut = build_user_text(s["subject"], s["style_hint"], BRANCHES[b],
-                             current["prompt"], current, base_tried + collected, N_PROPOSALS)
+                             current["prompt"], current, base_tried + collected,
+                             N_PROPOSALS, axis=axis)
         batch = qwen_propose(model, processor, s["target_path"],
-                             Path(current["render"]), ut, N_PROPOSALS)
+                             Path(current["render"]), ut, N_PROPOSALS,
+                             temperature=temperature, seed=seed)
         new = 0
         for p in batch:
+            p = clip_truncate(p)
             k = _norm(p)
             if not p or k in avoid or k in collected_norm:
                 continue
@@ -348,10 +411,11 @@ def free_gpu():
     torch.cuda.empty_cache()
 
 
-def save_checkpoint(state, proposals):
+def save_checkpoint(state, proposals, converged=None):
     data = {
         "pool_by_image": {n: s["pool"] for n, s in state.items()},
         "proposals": proposals,
+        "converged": sorted(converged or []),
     }
     tmp = CHECKPOINT_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False))
@@ -361,8 +425,9 @@ def save_checkpoint(state, proposals):
 def load_checkpoint():
     if CHECKPOINT_FILE.exists():
         d = json.loads(CHECKPOINT_FILE.read_text())
-        return d.get("pool_by_image", {}), d.get("proposals", {})
-    return {}, {}
+        return (d.get("pool_by_image", {}), d.get("proposals", {}),
+                set(d.get("converged", [])))
+    return {}, {}, set()
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -433,26 +498,35 @@ def build_state() -> dict:
 
 def _load_state_with_pools():
     state = build_state()
-    saved_pools, proposals = load_checkpoint()
+    saved_pools, proposals, converged = load_checkpoint()
     for name in state:
         state[name]["pool"] = saved_pools.get(name, [])
-    return state, proposals
+    return state, proposals, converged
+
+
+def _all_converged() -> bool:
+    """True once every in-scope image has stopped producing new proposals."""
+    state, _, converged = _load_state_with_pools()
+    return bool(state) and all(n in converged for n in state)
 
 
 # ── Worker: render phase (own process → clean GPU, pipe gets full VRAM) ─────────
 
 def run_render(t: int):
-    state, proposals = _load_state_with_pools()
+    state, proposals, converged = _load_state_with_pools()
     device = default_device()
     negative = load_negative_prompt()
     done = {r["render"] for s in state.values() for r in s["pool"]}
     pipe = load_pipeline(device)
     for name, s in state.items():
+        if t >= 1 and name in converged:
+            continue
         if t == 0:   # warm-start render
             if any(r["branch"] == "warm" for r in s["pool"]):
                 continue
             rp = s["base"] / "_warm" / "warm.png"
-            row = score_prompt(s["warm_prompt"], s["seed"], negative, pipe, device,
+            row = score_prompt(clip_truncate(s["warm_prompt"]), s["seed"], negative,
+                               pipe, device,
                                s["target_path"], rp, "warm", 0, len(s["pool"]) + 1)
             s["pool"].append(row); done.add(row["render"])
             print(f"   warm {name}: CLIP={row['clip_similarity']:.4f}", flush=True)
@@ -485,23 +559,33 @@ def run_render(t: int):
             f"{b}={select_best(b, branch_pool(s['pool'], b), 1)[0]['clip_similarity']:.3f}"
             for b in BRANCHES)
         print(f"   iter {t} {name}: CLIP best -> {tops}", flush=True)
-    save_checkpoint(state, proposals)
+    save_checkpoint(state, proposals, converged)
 
 
 # ── Worker: propose phase (own process → Qwen gets full VRAM, uncapped) ─────────
 
 def run_propose(t: int):
-    state, proposals = _load_state_with_pools()
+    state, proposals, converged = _load_state_with_pools()
     model, processor = load_qwen(QWEN_MODEL_ID)
     for name, s in state.items():
+        if name in converged:
+            continue
+        new_total = 0
         for b in BRANCHES:
             key = f"{name}|{b}|{t}"
-            if key in proposals:
-                continue
-            proposals[key] = collect_proposals(model, processor, name, s, b, proposals)
-            print(f"   iter {t} {name} [{b}]: {len(proposals[key])} distinct proposals",
-                  flush=True)
-            save_checkpoint(state, proposals)
+            if key not in proposals:
+                proposals[key] = collect_proposals(model, processor, name, s, b, proposals)
+                print(f"   iter {t} {name} [{b}]: {len(proposals[key])} distinct proposals",
+                      flush=True)
+                save_checkpoint(state, proposals, converged)
+            new_total += len(proposals[key])
+        # No branch found anything new this iteration -> the subject is exhausted;
+        # stop refining this image so we don't reload models for empty work.
+        if new_total == 0:
+            converged.add(name)
+            print(f"   iter {t} {name}: converged (no new proposals), "
+                  f"skipping further iterations", flush=True)
+            save_checkpoint(state, proposals, converged)
 
 
 # ── Orchestrator: run each phase as a subprocess (clean GPU every time) ─────────
@@ -516,7 +600,7 @@ def _run_phase(worker: str, t: int):
 
 
 def finalize():
-    state, _ = _load_state_with_pools()
+    state, _, _ = _load_state_with_pools()
     device = default_device()
     all_results: dict[str, list[dict]] = {}
     all_branches: dict[str, dict] = {}
@@ -618,6 +702,9 @@ def main():
     for t in range(1, N_ITERATIONS + 1):
         _run_phase("propose", t)
         _run_phase("render", t)
+        if _all_converged():
+            print(f"\nAll images converged by iter {t}; stopping early.", flush=True)
+            break
     finalize()
     print("\nDONE.")
 
