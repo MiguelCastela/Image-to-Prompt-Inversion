@@ -120,10 +120,15 @@ def dedupe(prompts: list[str], n: int) -> list[str]:
     return out[:n]
 
 
-# A valid prompt line is a numbered list item ("1. ..." / "2) ..."). Requiring
-# the number filters out markdown headers, code fences, "---" and any meta
-# commentary the VLM emits around the list.
-_NUM_RE = re.compile(r"^\s*\d+\s*[.)]\s+(.*\S)\s*$")
+# A valid prompt line is a numbered list item. Accepts the plain forms ("1. ..."
+# / "2) ...") and the markdown/labelled variants the VLM drifts to under sampling
+# pressure ("**Prompt #1:** ...", "**1:** ...", "Prompt 1: ..."). The leading
+# number is still required, which filters out headers, code fences, "---" and any
+# meta commentary around the list.
+_NUM_RE = re.compile(
+    r"^\s*\*{0,2}\s*(?:prompt\s*)?#?\s*\d+\s*[.):]\s*\*{0,2}\s*(.*\S)\s*$",
+    re.IGNORECASE,
+)
 
 
 def parse_numbered_list(text: str, n: int) -> list[str]:

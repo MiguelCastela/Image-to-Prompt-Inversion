@@ -133,6 +133,12 @@ IMG_RETRY_BUFFER = int(os.environ.get("P4_IMG_BUFFER", "3"))
 DO_SAMPLE   = True
 TEMPERATURE = 0.8
 TOP_P       = 0.95
+# Qwen's dominant diversity failure is verbatim self-copying WITHIN one call: it
+# emits prompt 1 then clones it into slots 2..n (so a request for 8 yields ~2
+# unique). repetition_penalty down-weights already-generated tokens, nudging it to
+# vary later slots. Kept soft (not no_repeat_ngram) so the SUBJECT phrase can still
+# lead every prompt; high values would force unnatural wording.
+REPETITION_PENALTY = float(os.environ.get("P4_REP_PENALTY", "1.2"))
 # Optimiser (proposal-sampling) seed. The LCM *render* seed is fixed per image
 # (from the filename) and never changes; this only seeds the stochastic prompt
 # search. P4_SEED lets the Reporting-Protocol multi-seed sweep (>=5 repetitions)
@@ -319,7 +325,8 @@ def qwen_propose(
         text=[text], images=image_inputs, videos=video_inputs,
         padding=True, return_tensors="pt",
     ).to(model.device)
-    gen_kwargs = {"max_new_tokens": MAX_NEW_TOKENS, "do_sample": DO_SAMPLE}
+    gen_kwargs = {"max_new_tokens": MAX_NEW_TOKENS, "do_sample": DO_SAMPLE,
+                  "repetition_penalty": REPETITION_PENALTY}
     if DO_SAMPLE:
         gen_kwargs.update(temperature=temperature, top_p=TOP_P)
         if seed is not None:
@@ -360,9 +367,12 @@ def collect_proposals(model, processor, name, s, b, t, proposals) -> list[str]:
         # Escalate temperature while we keep getting nothing new; rotate the axis
         # nudge per call. Seed is reproducible but distinct per (image, branch, call).
         temperature = min(TEMPERATURE + DIVERSITY_TEMP_STEP * stale, DIVERSITY_TEMP_MAX)
-        axis = DIVERSITY_AXES[call % len(DIVERSITY_AXES)]
+        # Fold the iteration t into both the axis offset and the sampling seed: without
+        # it, iter t replays iter t-1's exact sampling trajectory against a larger
+        # avoid-list, so everything it produces is already banned -> 0 new -> collapse.
+        axis = DIVERSITY_AXES[(call + t) % len(DIVERSITY_AXES)]
         seed = GEN_SEED + int.from_bytes(
-            hashlib.md5(f"{name}|{b}|{call}".encode()).digest()[:4], "big") % 1_000_000
+            hashlib.md5(f"{name}|{b}|{t}|{call}".encode()).digest()[:4], "big") % 1_000_000
         ut = build_user_text(s["subject"], s["style_hint"], BRANCHES[b],
                              current["prompt"], current, base_tried + collected,
                              target, axis=axis, push=stale)
