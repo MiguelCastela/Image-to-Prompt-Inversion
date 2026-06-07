@@ -1,18 +1,46 @@
 \relax 
-\providecommand\hyper@newdestlabel[2]{}
-\providecommand\HyField@AuxAddToFields[1]{}
-\providecommand\HyField@AuxAddToCoFields[2]{}
-\@writefile{toc}{\contentsline {title}{Image-to-Prompt Inversion: \unskip \ \ignorespaces  Recovering Latent Diffusion Prompts via Hybrid Optimization}{1}{chapter.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {title}{Image-to-Prompt}{1}{}\protected@file@percent }
 \@writefile{toc}{\authcount {2}}
-\@writefile{toc}{\contentsline {author}{Miguel Castela \and Miguel Martins}{1}{chapter.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {2}Problem Description}{1}{section.1.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology and Approach}{1}{section.1.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Phase 1: Semantic Initialization via Vision-Language Models}{2}{subsection.1.3.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Phase 2: LLM-Based Iterative Refinement}{2}{subsection.1.3.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Phase 3: Gradient-Based Discrete Optimization}{2}{subsection.1.3.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Setup}{2}{section.1.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Analysis of Results}{2}{section.1.5}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Quantitative Results for Target Image 1 (Example)}}{2}{table.1.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{2}{section.1.6}\protected@file@percent }
-\gdef \@abspage@last{2}
+\@writefile{toc}{\contentsline {author}{Miguel Castela \and Miguel Martins}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Description of the problem}{1}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces The six target images of the \texttt  {tp2-chosen} set. Prompts are not provided; the rendering seed is encoded in each filename.}}{2}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:targets}{{1}{2}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology and Approach}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Stage 1 — Vision–language warm start}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {CLIP-Interrogator (style / medium).}}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {BLIP-2 (subject).}}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Stage 2 — Closed-loop image-side refinement (final method)}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Loop structure.}}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Four objective branches.}}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Rendering, scoring and ranking}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Metrics.}}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Ranking.}}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}An open-loop alternative (explored, not used)}{4}{}\protected@file@percent }
+\newlabel{sec:openloop}{{3.4}{4}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Setup}{4}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Reproducibility matrix: fixed components, hyperparameters and random seeds of the pipeline.}}{5}{}\protected@file@percent }
+\newlabel{tab:repro}{{1}{5}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Analysis of the Results}{6}{}\protected@file@percent }
+\newlabel{sec:results}{{5}{6}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Aggregate metrics across the test set}{6}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Aggregate image-side metrics for the closed-loop method (mean$\pm $std). CLIP higher is better; LPIPS and pixel MSE lower is better.}}{6}{}\protected@file@percent }
+\newlabel{tab:aggregate}{{2}{6}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Per-image top-3 (final method)}{6}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Per-image top-3 recovered prompts (closed-loop method), with image-side metrics and the originating branch. Seed is the fixed LCM render seed.}}{7}{}\protected@file@percent }
+\newlabel{tab:perimage}{{3}{7}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Qualitative comparison of each target against its best reconstruction. Renders are produced under the fixed LCM configuration with the seed from the filename.}}{7}{}\protected@file@percent }
+\newlabel{fig:qualitative}{{2}{7}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Do the metrics agree? Rank correlations}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Spearman rank correlation between metrics over the closed-loop candidate pool ($n{=}56$).}}{7}{}\protected@file@percent }
+\newlabel{tab:spearman}{{4}{7}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Qualitative analysis: successes, failures, ambiguous cases}{8}{}\protected@file@percent }
+\newlabel{sec:limits}{{5.4}{8}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Clear success --- orange juice (1159\_25).}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {High-CLIP / high-LPIPS --- palm tree (1159\_29).}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Hardest semantic target --- hedgehog on a cube (1159\_7).}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Lowest absolute error --- astronaut (7836).}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Diversity collapse --- the top-3 shortfall.}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{9}{}\protected@file@percent }
+\gdef \@abspage@last{9}
