@@ -102,6 +102,17 @@ TOP_K        = 3      # prompts submitted per image
 MAX_NEW_TOKENS = int(os.environ.get("P4_MAXTOK", "320"))
 VLM_IMAGE_PX = 512    # downscale images shown to Qwen (VRAM headroom)
 
+# Diversity is enforced by selection, not prompt tricks. The propose step loops the
+# VLM until N_PROPOSALS distinct prompts are gathered, OR PROPOSE_PATIENCE consecutive
+# calls add nothing new (subject exhausted -> honest floor), OR PROPOSE_MAX_CALLS as a
+# compute backstop. No 2xN multiplier, no repetition penalty.
+PROPOSE_PATIENCE  = int(os.environ.get("P4_PATIENCE", "2"))
+PROPOSE_MAX_CALLS = int(os.environ.get("P4_MAXCALLS", "6"))
+# Renders are deduped per branch by perceptual (dHash) distance: a candidate whose
+# render is within IMG_DEDUP_MAX_HAM bits of one already kept is discarded. Same
+# prompt + fixed seed -> identical image (0 bits); token swaps the LCM ignores -> ~0.
+IMG_DEDUP_MAX_HAM = int(os.environ.get("P4_IMG_HAM", "5"))
+
 # Sampling for the proposal step: temperature > 0 is required for the N_PROPOSALS
 # variants (and successive iterations) to differ. GEN_SEED fixes the RNG once at
 # the start of the run so the whole sequence is reproducible.
@@ -159,7 +170,7 @@ def build_user_text(
 ) -> str:
     """User-message text: states subject (BLIP-2) vs style (CI) roles explicitly,
     the current scores, the branch objective, and what's already been tried."""
-    tried_block = "\n".join(f"  - {p}" for p in tried[-15:]) or "  (none yet)"
+    tried_block = "\n".join(f"  - {p}" for p in tried[-20:]) or "  (none yet)"
     style_line = f"\nSTYLE / medium hints (clip-interrogator): {style_hint}" if style_hint else ""
     return (
         f"SUBJECT of the target (from BLIP-2, treat as the main object/scene): "
@@ -183,6 +194,26 @@ def _vlm_image(path: Path):
     im = Image.open(path).convert("RGB")
     im.thumbnail((VLM_IMAGE_PX, VLM_IMAGE_PX))
     return im
+
+
+def _norm(prompt: str) -> str:
+    """Normalise a prompt for exact-duplicate comparison (case/whitespace-insensitive)."""
+    return " ".join(prompt.lower().split())
+
+
+def _phash(path, hash_size: int = 8):
+    """Difference hash of a render: a boolean array of length hash_size**2. Two
+    visually identical images hash within a few bits (Hamming) of each other."""
+    from PIL import Image
+    import numpy as np
+    resample = getattr(Image, "Resampling", Image).LANCZOS
+    im = Image.open(path).convert("L").resize((hash_size + 1, hash_size), resample)
+    a = np.asarray(im, dtype=np.int16)
+    return (a[:, 1:] > a[:, :-1]).flatten()
+
+
+def _hamming(a, b) -> int:
+    return int((a != b).sum())
 
 
 def qwen_propose(
@@ -217,6 +248,45 @@ def qwen_propose(
     trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated_ids)]
     output = processor.batch_decode(trimmed, skip_special_tokens=True)[0]
     return parse_numbered_list(output, n)
+
+
+def collect_proposals(model, processor, name, s, b, proposals) -> list[str]:
+    """Loop the VLM (resident, no model swap) until N_PROPOSALS distinct NEW prompts
+    are gathered, or PROPOSE_PATIENCE consecutive calls add nothing new, or the
+    PROPOSE_MAX_CALLS backstop. The growing list is fed back as the avoid-list each
+    call, and prompts proposed in earlier iterations are excluded too, so we never
+    re-offer something already rendered (or already rejected as a visual duplicate)."""
+    bp = branch_pool(s["pool"], b)
+    current = select_best(b, bp, 1)[0]
+    prior = [p for k, v in proposals.items()
+             if k.startswith(f"{name}|{b}|") for p in v]   # earlier iterations
+    base_tried = [r["prompt"] for r in bp] + prior
+    avoid = {_norm(p) for p in base_tried}
+
+    collected: list[str] = []
+    collected_norm: set[str] = set()
+    stale = 0
+    for _ in range(PROPOSE_MAX_CALLS):
+        if len(collected) >= N_PROPOSALS:
+            break
+        ut = build_user_text(s["subject"], s["style_hint"], BRANCHES[b],
+                             current["prompt"], current, base_tried + collected, N_PROPOSALS)
+        batch = qwen_propose(model, processor, s["target_path"],
+                             Path(current["render"]), ut, N_PROPOSALS)
+        new = 0
+        for p in batch:
+            k = _norm(p)
+            if not p or k in avoid or k in collected_norm:
+                continue
+            collected.append(p)
+            collected_norm.add(k)
+            new += 1
+            if len(collected) >= N_PROPOSALS:
+                break
+        stale = 0 if new else stale + 1
+        if stale >= PROPOSE_PATIENCE:
+            break
+    return collected
 
 
 # ── Fitness ───────────────────────────────────────────────────────────────────
@@ -388,14 +458,29 @@ def run_render(t: int):
             print(f"   warm {name}: CLIP={row['clip_similarity']:.4f}", flush=True)
             continue
         for b in BRANCHES:
-            seen = {r["prompt"] for r in s["pool"]}
+            # Per-branch namespace: dedup only against this branch (+ the shared warm
+            # start), so branches never suppress each other's candidates.
+            bp = branch_pool(s["pool"], b)
+            seen = {_norm(r["prompt"]) for r in bp}
+            kept_hashes = [_phash(p) for p in
+                           (Path(r["render"]) for r in bp) if p.exists()]
             for j, prompt in enumerate(proposals.get(f"{name}|{b}|{t}", []), start=1):
                 rp = s["base"] / b / f"iter{t:02d}_{j:02d}.png"
-                if str(rp) in done or not prompt or prompt in seen:
+                kp = _norm(prompt)
+                if str(rp) in done or not prompt or kp in seen:
+                    continue
+                if not rp.exists():
+                    render(prompt, s["seed"], pipe, device,
+                           negative_prompt=negative).save(rp)
+                h = _phash(rp)
+                if kept_hashes and min(_hamming(h, k) for k in kept_hashes) <= IMG_DEDUP_MAX_HAM:
+                    rp.unlink(missing_ok=True)   # visual duplicate -> not a new candidate
+                    seen.add(kp)
                     continue
                 row = score_prompt(prompt, s["seed"], negative, pipe, device,
                                    s["target_path"], rp, b, t, len(s["pool"]) + 1)
-                s["pool"].append(row); done.add(row["render"]); seen.add(prompt)
+                s["pool"].append(row); done.add(row["render"])
+                seen.add(kp); kept_hashes.append(h)
         tops = " ".join(
             f"{b}={select_best(b, branch_pool(s['pool'], b), 1)[0]['clip_similarity']:.3f}"
             for b in BRANCHES)
@@ -413,15 +498,9 @@ def run_propose(t: int):
             key = f"{name}|{b}|{t}"
             if key in proposals:
                 continue
-            bp = branch_pool(s["pool"], b)
-            current = select_best(b, bp, 1)[0]
-            tried = [r["prompt"] for r in bp]
-            ut = build_user_text(s["subject"], s["style_hint"], BRANCHES[b],
-                                 current["prompt"], current, tried, N_PROPOSALS)
-            proposals[key] = qwen_propose(
-                model, processor, s["target_path"], Path(current["render"]),
-                ut, N_PROPOSALS)
-            print(f"   iter {t} {name} [{b}]: {len(proposals[key])} proposals", flush=True)
+            proposals[key] = collect_proposals(model, processor, name, s, b, proposals)
+            print(f"   iter {t} {name} [{b}]: {len(proposals[key])} distinct proposals",
+                  flush=True)
             save_checkpoint(state, proposals)
 
 
@@ -505,6 +584,13 @@ def finalize():
     summary["metadata"]["temperature"] = TEMPERATURE if DO_SAMPLE else None
     summary["metadata"]["top_p"] = TOP_P if DO_SAMPLE else None
     summary["metadata"]["gen_seed"] = GEN_SEED
+    summary["metadata"]["diversity"] = {
+        "propose_until_n_distinct": N_PROPOSALS,
+        "propose_patience": PROPOSE_PATIENCE,
+        "propose_max_calls": PROPOSE_MAX_CALLS,
+        "image_dedup_max_hamming": IMG_DEDUP_MAX_HAM,
+        "method": "convergence-guarded proposal loop + per-branch image-level dedup",
+    }
     SUMMARY_FILE.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
     print(f"Saved report summary to {SUMMARY_FILE}")
 

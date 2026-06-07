@@ -7015,3 +7015,132 @@ code 0)
 ● Let me look at the actual 1159_25 folder to explain precisely:
 
   Ran 1 shell command (ctrl+o to expand)
+
+────────────────────────────────────────────────────────────────────────────────
+CONTINUATION — new session (different account: migsonic08@gmail.com, machine
+"ozzy", repo cloned at ~/Desktop/mei/.../IAG/Gen-AI/TP2). The session.md above was
+read in full as context; the prior work was pulled into this clone.
+────────────────────────────────────────────────────────────────────────────────
+
+❯ I have a session in .md "session.md" How do I open that session
+
+● Explained that session.md is a saved transcript, not a resumable session. To
+  read it: open in an editor / less. To resume a live Claude Code session you'd use
+  `claude --resume` / `claude --continue`, but that needs the original .jsonl in the
+  session store (tied to account + machine + directory). Confirmed via the local
+  store that no resumable session exists for this path/account.
+
+❯ This session is from a different account, can I not continue it here? if not can
+  you read the session so you know the context of it?
+
+● Confirmed: cannot resume (different account/machine/dir; a .md can't be turned
+  back into a live session). Read the entire transcript (7000+ lines) and summarised
+  the project state: Blackwell RTX 5060 CUDA brought up; Phase 1 settled on
+  clip-interrogator interrogate() warm start + BLIP-2 subject; Phases 2/3 scrapped
+  as standalone (but imported by phase4); Phase 4 closed-loop beam search with
+  subprocess model-swapping + checkpoint/resume; first test (warm + iter 1) verified
+  refinement improves CLIP.
+
+❯ it does have, I just pulled them, assume this as a continuation. But for example
+  the 1159_25 folder inside phase 4 has 1 image in /lpips and 1 in /_warm and 0
+  across other folders, is this expected?
+
+● Inspected outputs/phase4 + the checkpoint. Explained:
+  - _warm/ = the iteration-0 warm-start render (shared baseline per image).
+  - clip/lpips/mse/composite = per-branch candidate renders.
+  - Empty mse/composite for 1159_25 is EXPECTED: (1) Qwen collapsed its proposals
+    (mse/composite each only got 1), and (2) cross-branch dedup (a pool-wide `seen`
+    set, branches render clip→lpips→mse→composite) made later branches' single
+    proposal a duplicate of one already rendered → skipped → 0 files. 7836 is the
+    extreme case (only _warm). Same-prompt+fixed-seed = identical image, so dedup
+    costs nothing in the deliverable. Honest finding: closed-loop diversity scales
+    with subject complexity.
+
+❯ we want to force more diversity ... [pipeline BLIP2+CLIP->LCM->IMAGES->
+  DESCRIPTION+IMAGE+TARGET->VLM->NEW PROMPTS] ... now that we use raw blip-large
+  (unrestricted) what are we missing?
+
+● Diagnosis ("what you're missing"):
+  1. The unrestricted-BLIP change was a QUALITY fix, not a diversity lever — the
+     warm start is one deterministic caption; all diversity is manufactured at the
+     VLM proposal step, which is the collapsing part.
+  2. Fidelity vs diversity are in direct tension: every call asks "reproduce the
+     target" AND "be different" — for a simple image the faithful description is
+     unique, so it stays faithful → near-duplicates.
+  3. Fixed LCM seed ⇒ prompts are the ONLY diversity lever; tiny token swaps render
+     identically. The ground truth of "a diverse candidate" is the rendered IMAGE,
+     not the prompt string — but dedup was on prompt strings.
+  4. Mechanical: single-pass list collapse, exact-string dedup, cross-branch dedup
+     (the biggest cause of empty folders), and branch "objectives" too abstract to
+     change generated tokens.
+  Proposed: #1 axis-conditioned proposals, #2 per-branch dedup namespace, #3 image-
+  level dedup, #4 branch objectives in prompt content, #5 over-generate + novelty
+  selection.
+
+❯ what do you mean by axis conditioned proposals?
+
+● Explained: assign each of the N slots a specific visual dimension to vary
+  (lighting / palette / medium / composition / detail) with the subject pinned, so
+  each prompt explores one axis and renders differently. Gave an orange-juice
+  example.
+
+❯ that is voodoo, is there a simpler way to enforce variety in the system prompt? (i
+  agree with 2,3). 1 is bugging me.
+
+● Agreed — dropped #1 (axis-conditioning is hand-engineering, same family as the
+  repetition-penalty hack). With #2 + #3 you don't need it: move enforcement out of
+  the prompt and into SELECTION. Keep the system prompt simple; over-generate, render,
+  keep only renders that are actually visually distinct (#3); feed survivors back as
+  the avoid-list. Variety enforced by the images, nothing hand-tuned.
+
+❯ what did you mean by repetition-penalty hack? also can't we just run until we have
+  all desired candidates and stop there, instead of heuristics like 2xN?
+
+● repetition-penalty hack: an earlier pass set generate(repetition_penalty=1.3/1.15)
+  to force variety — voodoo because it's a token-level knob for a whole-prompt
+  semantic problem, it punishes tokens that SHOULD repeat (subject, list numbering),
+  broke the numbered format at 1.3, and fights the symptom not the cause. Removed.
+  Run-until-N: yes, better than 2xN. Use a convergence-guarded loop — keep generating
+  until N distinct OR no-new-for-K-rounds (termination guard, not a diversity
+  heuristic; necessary because simple images genuinely can't reach N) OR a hard cap.
+  Do the looping where Qwen is resident (propose phase) to avoid model-swap thrash;
+  render-phase image-dedup + the 12 outer iterations finish the job.
+
+❯ yes, implement it, and then tell me what to run on our good pc overnight
+
+● Implemented in phase4_refine.py and verified (syntax, helpers, convergence loop):
+  - New knobs: PROPOSE_PATIENCE (2), PROPOSE_MAX_CALLS (6), IMG_DEDUP_MAX_HAM (5),
+    all env-overridable (P4_PATIENCE / P4_MAXCALLS / P4_IMG_HAM).
+  - Helpers: _norm (case/space-insensitive prompt key), _phash (dHash of a render),
+    _hamming.
+  - collect_proposals(): loops the VLM until N distinct prompts OR patience OR max
+    calls; avoid-list = kept prompts + ALL prior-iteration proposals (so nothing is
+    re-offered, incl. previously rejected visual dups). The len>=N check precedes the
+    VLM call, so a rich subject that fills N in one call wastes zero calls.
+  - run_propose(): now calls collect_proposals.
+  - run_render(): per-branch namespace (dedup vs branch_pool only, not the whole
+    pool); after rendering, dHash-dedup vs already-kept renders in that branch (≤5
+    bits ⇒ duplicate ⇒ render file unlinked, candidate discarded). Renders once then
+    reuses the file for scoring (no double render). Idempotent on resume.
+  - finalize(): summary metadata records the diversity method + knobs.
+  System prompt left unchanged. No axis-conditioning, no repetition penalty.
+
+  Overnight (on the good PC, ~/Documents/GitHub/Gen-AI/TP2):
+    # 1) ~10-min GPU smoke test, isolated via P4_TAG:
+    git pull
+    P4_TAG=_smoke P4_LIMIT=2 P4_ITERS=1 P4_BRANCHES=clip,mse \
+      .venv/bin/python -u phase4_refine.py 2>&1 | tail -40
+    rm -rf outputs/phase4_smoke* phase4_smoke_*
+    # 2) full fresh run (start clean so every iter uses the new logic):
+    rm -rf outputs/phase4 outputs/phase4_top3 phase4_checkpoint.json \
+           phase4_results.json phase4_branches.json phase4_summary.json \
+           phase4_top3.json phase4_top3.csv
+    nohup .venv/bin/python -u phase4_refine.py > phase4.log 2>&1 &
+    tail -f phase4.log
+  Re-run the nohup line (without the rm) to resume after any crash/power-off.
+  Expect: longer than before (up to 6 VLM calls/branch/iter; simple subjects stop at
+  ~2-3 via patience), honest image-dependent diversity floor, fully resumable.
+
+❯ append our conversation to the session.md, commit and push
+
+● Appended this continuation and committed/pushed.
