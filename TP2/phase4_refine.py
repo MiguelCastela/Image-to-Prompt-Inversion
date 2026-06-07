@@ -90,6 +90,7 @@ TOP3_CSV      = Path(f"phase4{TAG}_top3.csv")
 BRANCHES_FILE = Path(f"phase4{TAG}_branches.json")
 SUMMARY_FILE  = Path(f"phase4{TAG}_summary.json")
 CHECKPOINT_FILE = Path(f"phase4{TAG}_checkpoint.json")   # resume after a crash/shutdown
+TRACE_FILE      = Path(f"phase4{TAG}_trace.jsonl")        # append-only per-call forensics
 
 QWEN_MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
 
@@ -114,18 +115,23 @@ PROPOSE_MAX_CALLS = int(os.environ.get("P4_MAXCALLS", "6"))
 # prompt + fixed seed -> identical image (0 bits); token swaps the LCM ignores -> ~0.
 IMG_DEDUP_MAX_HAM = int(os.environ.get("P4_IMG_HAM", "5"))
 
-# Sampling for the proposal step: temperature > 0 is required for the N_PROPOSALS
-# variants (and successive iterations) to differ. Each VLM call uses a distinct,
-# reproducible seed (derived from image/branch/call), and the temperature is
-# escalated while calls keep returning nothing new (the model's distribution is
-# peaked once the subject is described; raising temperature is what produces
-# genuinely different prompts instead of re-offering the avoid-listed ones).
+# Sampling for the proposal step. Diversity comes primarily from the distinct
+# per-(image, branch, call) seed and the rotating axis nudge; temperature is only
+# a gentle secondary lever, escalated slightly while calls keep returning nothing
+# new. It is capped low (0.85) on purpose: pushing it higher buys marginal extra
+# variety at the cost of prompt coherence (the model starts emitting malformed or
+# off-target tags), which hurts the render more than the diversity helps.
 DO_SAMPLE   = True
 TEMPERATURE = 0.8
 TOP_P       = 0.95
-GEN_SEED    = 1234
-DIVERSITY_TEMP_STEP = float(os.environ.get("P4_TEMP_STEP", "0.25"))   # +per stale call
-DIVERSITY_TEMP_MAX  = float(os.environ.get("P4_TEMP_MAX", "1.3"))
+# Optimiser (proposal-sampling) seed. The LCM *render* seed is fixed per image
+# (from the filename) and never changes; this only seeds the stochastic prompt
+# search. P4_SEED lets the Reporting-Protocol multi-seed sweep (>=5 repetitions)
+# vary it without code edits — pair it with a distinct P4_TAG so each repetition
+# writes its own outputs/checkpoint instead of clobbering the previous one.
+GEN_SEED    = int(os.environ.get("P4_SEED", "1234"))
+DIVERSITY_TEMP_STEP = float(os.environ.get("P4_TEMP_STEP", "0.05"))   # +per stale call
+DIVERSITY_TEMP_MAX  = float(os.environ.get("P4_TEMP_MAX", "0.85"))
 
 # Each proposal call is nudged to vary one description axis, rotating per call, so
 # the batch spreads out instead of clustering on the same phrasing.
@@ -161,8 +167,15 @@ if os.environ.get("P4_BRANCHES"):
     _keep = {b.strip() for b in os.environ["P4_BRANCHES"].split(",")}
     BRANCHES = {k: v for k, v in BRANCHES.items() if k in _keep}
 
-# Negative prompt is loaded via phase3's load_negative_prompt() (clip-interrogator
-# negative.txt, comma-joined). CFG is on at guidance 8.0, so it is active.
+# Negative prompt. The fixed generation setup the TARGETS were produced under
+# (model, seed, 8 steps, guidance 8.0, lcm_origin_steps 50, 768x768) lists NO
+# negative prompt, so adding clip-interrogator's negative.txt is a deviation that
+# systematically pushes our renders off the targets' manifold and can only hurt
+# the image-side metrics. Default OFF to match the targets; P4_NEGATIVE=1 re-enables
+# it for an A/B. (It is not the cause of low prompt diversity — that is a
+# text-generation issue fixed by the per-call seed/temperature/axis — but removing
+# it is the right call for fidelity.)
+USE_NEGATIVE = os.environ.get("P4_NEGATIVE", "0") == "1"
 
 
 # ── Qwen refinement prompt ──────────────────────────────────────────────────────
@@ -266,7 +279,7 @@ def _hamming(a, b) -> int:
 def qwen_propose(
     model, processor, target_path: Path, gen_path: Path, user_text: str, n: int,
     temperature: float = TEMPERATURE, seed: int | None = None,
-) -> list[str]:
+) -> tuple[list[str], str]:
     from qwen_vl_utils import process_vision_info
 
     messages = [
@@ -301,10 +314,10 @@ def qwen_propose(
     if not parsed:
         print(f"   [warn] {target_path.name}: no prompts parsed from VLM output: "
               f"{output[:200]!r}", flush=True)
-    return parsed
+    return parsed, output
 
 
-def collect_proposals(model, processor, name, s, b, proposals) -> list[str]:
+def collect_proposals(model, processor, name, s, b, t, proposals) -> list[str]:
     """Loop the VLM (resident, no model swap) until N_PROPOSALS distinct NEW prompts
     are gathered, or PROPOSE_PATIENCE consecutive calls add nothing new, or the
     PROPOSE_MAX_CALLS backstop. The growing list is fed back as the avoid-list each
@@ -332,12 +345,12 @@ def collect_proposals(model, processor, name, s, b, proposals) -> list[str]:
         ut = build_user_text(s["subject"], s["style_hint"], BRANCHES[b],
                              current["prompt"], current, base_tried + collected,
                              N_PROPOSALS, axis=axis)
-        batch = qwen_propose(model, processor, s["target_path"],
-                             Path(current["render"]), ut, N_PROPOSALS,
-                             temperature=temperature, seed=seed)
+        batch, raw = qwen_propose(model, processor, s["target_path"],
+                                  Path(current["render"]), ut, N_PROPOSALS,
+                                  temperature=temperature, seed=seed)
         new = 0
-        for p in batch:
-            p = clip_truncate(p)
+        truncated = [clip_truncate(p) for p in batch]
+        for p in truncated:
             k = _norm(p)
             if not p or k in avoid or k in collected_norm:
                 continue
@@ -346,6 +359,15 @@ def collect_proposals(model, processor, name, s, b, proposals) -> list[str]:
             new += 1
             if len(collected) >= N_PROPOSALS:
                 break
+        # One trace line per VLM call: enough to reconstruct exactly which axis /
+        # temperature / seed produced which prompts, how many were new, and the raw
+        # model text (so parse failures and near-duplicate runs are diagnosable).
+        trace_append({
+            "event": "propose_call", "image": name, "branch": b, "iter": t,
+            "call": call, "axis": axis, "temperature": round(temperature, 3),
+            "seed": seed, "n_parsed": len(batch), "n_new": new,
+            "proposed": truncated, "raw": raw,
+        })
         stale = 0 if new else stale + 1
         if stale >= PROPOSE_PATIENCE:
             break
@@ -409,6 +431,16 @@ def free_gpu():
     a parameter here wouldn't drop the caller's binding."""
     gc.collect()
     torch.cuda.empty_cache()
+
+
+def trace_append(record: dict):
+    """Append one JSON line to the run trace. Append-only and flushed per write so
+    a crash leaves a complete record up to the last event. Used for per-call
+    proposal forensics (axis/temp/seed/raw output) and dedup events — none of which
+    the checkpoint captures — so the diversity mechanism can be analysed offline."""
+    record = {"ts": datetime.now(timezone.utc).isoformat(), **record}
+    with TRACE_FILE.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def save_checkpoint(state, proposals, converged=None):
@@ -515,7 +547,7 @@ def _all_converged() -> bool:
 def run_render(t: int):
     state, proposals, converged = _load_state_with_pools()
     device = default_device()
-    negative = load_negative_prompt()
+    negative = load_negative_prompt() if USE_NEGATIVE else ""
     done = {r["render"] for s in state.values() for r in s["pool"]}
     pipe = load_pipeline(device)
     for name, s in state.items():
@@ -547,9 +579,20 @@ def run_render(t: int):
                     render(prompt, s["seed"], pipe, device,
                            negative_prompt=negative).save(rp)
                 h = _phash(rp)
-                if kept_hashes and min(_hamming(h, k) for k in kept_hashes) <= IMG_DEDUP_MAX_HAM:
-                    rp.unlink(missing_ok=True)   # visual duplicate -> not a new candidate
+                ham = min((_hamming(h, k) for k in kept_hashes), default=None)
+                if ham is not None and ham <= IMG_DEDUP_MAX_HAM:
+                    # Visual duplicate -> not a new candidate. Move (not delete) the
+                    # render to a _dupes/ sibling and log it, so what the dedup filtered
+                    # stays auditable for the diversity analysis.
+                    dup_dir = s["base"] / "_dupes" / b
+                    dup_dir.mkdir(parents=True, exist_ok=True)
+                    dup_path = dup_dir / rp.name
+                    rp.replace(dup_path)
                     seen.add(kp)
+                    trace_append({
+                        "event": "render_dedup", "image": name, "branch": b, "iter": t,
+                        "prompt": prompt, "dup_render": str(dup_path), "min_hamming": ham,
+                    })
                     continue
                 row = score_prompt(prompt, s["seed"], negative, pipe, device,
                                    s["target_path"], rp, b, t, len(s["pool"]) + 1)
@@ -574,7 +617,7 @@ def run_propose(t: int):
         for b in BRANCHES:
             key = f"{name}|{b}|{t}"
             if key not in proposals:
-                proposals[key] = collect_proposals(model, processor, name, s, b, proposals)
+                proposals[key] = collect_proposals(model, processor, name, s, b, t, proposals)
                 print(f"   iter {t} {name} [{b}]: {len(proposals[key])} distinct proposals",
                       flush=True)
                 save_checkpoint(state, proposals, converged)
@@ -668,10 +711,14 @@ def finalize():
     summary["metadata"]["temperature"] = TEMPERATURE if DO_SAMPLE else None
     summary["metadata"]["top_p"] = TOP_P if DO_SAMPLE else None
     summary["metadata"]["gen_seed"] = GEN_SEED
+    summary["metadata"]["negative_prompt"] = "clip-interrogator" if USE_NEGATIVE else "none"
     summary["metadata"]["diversity"] = {
         "propose_until_n_distinct": N_PROPOSALS,
         "propose_patience": PROPOSE_PATIENCE,
         "propose_max_calls": PROPOSE_MAX_CALLS,
+        "temperature_base": TEMPERATURE,
+        "temperature_step": DIVERSITY_TEMP_STEP,
+        "temperature_max": DIVERSITY_TEMP_MAX,
         "image_dedup_max_hamming": IMG_DEDUP_MAX_HAM,
         "method": "convergence-guarded proposal loop + per-branch image-level dedup",
     }
