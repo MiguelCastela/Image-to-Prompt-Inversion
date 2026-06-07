@@ -177,9 +177,13 @@ def print_aggregate(label: str, rows: list[dict]) -> None:
     lm, ls = mean_std(lp)
     mm, ms = mean_std(mse)
     print(f"  {label}  (n={len(rows)})")
-    print(f"    CLIP  mean={cm:.4f}  std={cs:.4f}   (higher better)")
-    print(f"    LPIPS mean={lm:.4f}  std={ls:.4f}   (lower better)")
-    print(f"    MSE   mean={mm:.4f}  std={ms:.4f}   (lower better)")
+    print(f"    CLIP      mean={cm:.4f}  std={cs:.4f}   (higher better)")
+    print(f"    LPIPS     mean={lm:.4f}  std={ls:.4f}   (lower better)")
+    print(f"    MSE       mean={mm:.4f}  std={ms:.4f}   (lower better)")
+    if rows and "rank_composite" in rows[0]:
+        comp = [r["rank_composite"] for r in rows]
+        km, ks = mean_std(comp)
+        print(f"    Composite mean={km:.4f}  std={ks:.4f}   (Borda rank, lower better)")
 
 
 # ── Summary (saved for the report) ──────────────────────────────────────────────
@@ -196,12 +200,17 @@ def _stats(values: list[float]) -> dict:
 
 
 def _metric_block(rows: list[dict]) -> dict:
-    return {
+    """The three statement metrics plus the composite (Borda average of the three
+    per-metric ranks; lower = better). rank_composite is present once attach_ranks
+    has run on the pool these rows came from."""
+    block = {
         "clip_similarity": _stats([r["clip_similarity"] for r in rows]),
         "lpips": _stats([r["lpips"] for r in rows]),
         "pixel_mse": _stats([r["pixel_mse"] for r in rows]),
-        "pixel_rmse": _stats([r["pixel_rmse"] for r in rows]),
     }
+    if rows and "rank_composite" in rows[0]:
+        block["rank_composite"] = _stats([r["rank_composite"] for r in rows])
+    return block
 
 
 def _spearman(a: list[float], b: list[float]) -> float:
@@ -274,8 +283,8 @@ def build_summary(
             "top_k": TOP_K,
             "n_images": len(all_results),
             "n_candidates_total": len(all_rows),
-            "metrics": ["clip_similarity", "lpips", "pixel_mse", "pixel_rmse"],
-            "ranking": "composite = mean(rank_clip, rank_lpips, rank_mse)",
+            "metrics": ["clip_similarity", "lpips", "pixel_mse", "rank_composite"],
+            "ranking": "composite = mean(rank_clip, rank_lpips, rank_mse), lower better",
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
         "aggregate": {

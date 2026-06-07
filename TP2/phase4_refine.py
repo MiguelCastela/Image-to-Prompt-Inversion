@@ -104,23 +104,32 @@ TOP_K        = 3      # prompts submitted per image
 MAX_NEW_TOKENS = int(os.environ.get("P4_MAXTOK", "320"))
 VLM_IMAGE_PX = 512    # downscale images shown to Qwen (VRAM headroom)
 
-# Diversity is enforced by selection, not prompt tricks. The propose step loops the
-# VLM until N_PROPOSALS distinct prompts are gathered, OR PROPOSE_PATIENCE consecutive
-# calls add nothing new (subject exhausted -> honest floor), OR PROPOSE_MAX_CALLS as a
-# compute backstop. No 2xN multiplier, no repetition penalty.
-PROPOSE_PATIENCE  = int(os.environ.get("P4_PATIENCE", "2"))
-PROPOSE_MAX_CALLS = int(os.environ.get("P4_MAXCALLS", "6"))
-# Renders are deduped per branch by perceptual (dHash) distance: a candidate whose
-# render is within IMG_DEDUP_MAX_HAM bits of one already kept is discarded. Same
-# prompt + fixed seed -> identical image (0 bits); token swaps the LCM ignores -> ~0.
-IMG_DEDUP_MAX_HAM = int(os.environ.get("P4_IMG_HAM", "5"))
+# The propose step loops the VLM until N_PROPOSALS (+buffer) distinct prompts are
+# gathered, OR PROPOSE_PATIENCE consecutive calls add nothing new, OR PROPOSE_MAX_CALLS
+# as a backstop. These are set high on purpose: the model should keep trying hard for
+# new wordings (with escalating temperature + a "diverge harder" instruction) before
+# we ever declare a branch exhausted. Compute is cheap relative to a flat run.
+PROPOSE_PATIENCE  = int(os.environ.get("P4_PATIENCE", "5"))
+PROPOSE_MAX_CALLS = int(os.environ.get("P4_MAXCALLS", "12"))
+# Renders are deduped by perceptual (dHash) distance: a candidate whose render is
+# within IMG_DEDUP_MAX_HAM bits of one already kept is discarded. Default 0 = drop
+# ONLY effectively-identical images (same picture up to the coarse hash) — e.g. a
+# trailing token the LCM ignores. Genuine variants (different lighting/composition)
+# differ by >=1 bit and are kept. Raise it to prune near-duplicates more eagerly.
+IMG_DEDUP_MAX_HAM = int(os.environ.get("P4_IMG_HAM", "0"))
+# To still land N_PROPOSALS *distinct images* per branch when some renders are
+# visual duplicates, the propose step over-generates by IMG_RETRY_BUFFER prompts in
+# the same call; the render step renders them only as needed, drawing on the spares
+# to replace duplicates. Propose and render are separate processes, so this buffer
+# is the refill mechanism (the renderer cannot call back into Qwen).
+IMG_RETRY_BUFFER = int(os.environ.get("P4_IMG_BUFFER", "3"))
 
-# Sampling for the proposal step. Diversity comes primarily from the distinct
-# per-(image, branch, call) seed and the rotating axis nudge; temperature is only
-# a gentle secondary lever, escalated slightly while calls keep returning nothing
-# new. It is capped low (0.85) on purpose: pushing it higher buys marginal extra
-# variety at the cost of prompt coherence (the model starts emitting malformed or
-# off-target tags), which hurts the render more than the diversity helps.
+# Sampling for the proposal step. Diversity comes from the distinct per-(image,
+# branch, call) seed, the rotating axis nudge, and — crucially when a branch starts
+# repeating itself — a temperature that escalates meaningfully with each stale call
+# so the distribution actually flattens and new wordings appear. The ceiling is high
+# enough to break out of a peaked distribution; malformed or off-target prompts that
+# leak through at high temperature simply score worse and are dropped by selection.
 DO_SAMPLE   = True
 TEMPERATURE = 0.8
 TOP_P       = 0.95
@@ -130,8 +139,8 @@ TOP_P       = 0.95
 # vary it without code edits — pair it with a distinct P4_TAG so each repetition
 # writes its own outputs/checkpoint instead of clobbering the previous one.
 GEN_SEED    = int(os.environ.get("P4_SEED", "1234"))
-DIVERSITY_TEMP_STEP = float(os.environ.get("P4_TEMP_STEP", "0.05"))   # +per stale call
-DIVERSITY_TEMP_MAX  = float(os.environ.get("P4_TEMP_MAX", "0.85"))
+DIVERSITY_TEMP_STEP = float(os.environ.get("P4_TEMP_STEP", "0.15"))   # +per stale call
+DIVERSITY_TEMP_MAX  = float(os.environ.get("P4_TEMP_MAX", "1.20"))
 
 # Each proposal call is nudged to vary one description axis, rotating per call, so
 # the batch spreads out instead of clustering on the same phrasing.
@@ -209,12 +218,21 @@ def build_user_text(
     tried: list[str],
     n: int,
     axis: str = "",
+    push: int = 0,
 ) -> str:
     """User-message text: states subject (BLIP-2) vs style (CI) roles explicitly,
-    the current scores, the branch objective, and what's already been tried."""
+    the current scores, the branch objective, and what's already been tried. `push`
+    rises each time the previous call added nothing new -> a stronger instruction to
+    rewrite from scratch rather than nudge."""
     tried_block = "\n".join(f"  - {p}" for p in tried[-20:]) or "  (none yet)"
     style_line = f"\nSTYLE / medium hints (clip-interrogator): {style_hint}" if style_hint else ""
     axis_line = f"\nFor THIS set, especially vary how you describe: {axis}." if axis else ""
+    push_line = (
+        "\n\nIMPORTANT: your last attempts mostly repeated prompts already tried. "
+        "Do NOT lightly edit the current prompt. Re-describe the target FROM SCRATCH "
+        "with different sentence structure, synonyms, tag ordering, and emphasis — "
+        "the wordings must be clearly distinct from every prompt listed above."
+    ) if push else ""
     return (
         f"SUBJECT of the target (from BLIP-2, treat as the main object/scene): "
         f"{subject or 'unknown'}"
@@ -225,7 +243,7 @@ def build_user_text(
         f"  CLIP={metrics['clip_similarity']:.4f}  "
         f"LPIPS={metrics['lpips']:.4f}  MSE={metrics['pixel_mse']:.5f}\n\n"
         f"Objective for these variations: {objective}{axis_line}\n\n"
-        f"Prompts already tried (do NOT repeat these):\n{tried_block}\n\n"
+        f"Prompts already tried (do NOT repeat these):\n{tried_block}{push_line}\n\n"
         f"Treat the BLIP-2 SUBJECT as what the thing IS, and the clip-interrogator "
         f"text as how it LOOKS (style/medium). Generate {n} improved, distinct prompts."
     )
@@ -330,11 +348,14 @@ def collect_proposals(model, processor, name, s, b, t, proposals) -> list[str]:
     base_tried = [r["prompt"] for r in bp] + prior
     avoid = {_norm(p) for p in base_tried}
 
+    # Gather N_PROPOSALS + a buffer of distinct prompts per call, so the render step
+    # has spares to swap in when a render turns out to be a visual duplicate.
+    target = N_PROPOSALS + IMG_RETRY_BUFFER
     collected: list[str] = []
     collected_norm: set[str] = set()
     stale = 0
     for call in range(PROPOSE_MAX_CALLS):
-        if len(collected) >= N_PROPOSALS:
+        if len(collected) >= target:
             break
         # Escalate temperature while we keep getting nothing new; rotate the axis
         # nudge per call. Seed is reproducible but distinct per (image, branch, call).
@@ -344,9 +365,9 @@ def collect_proposals(model, processor, name, s, b, t, proposals) -> list[str]:
             hashlib.md5(f"{name}|{b}|{call}".encode()).digest()[:4], "big") % 1_000_000
         ut = build_user_text(s["subject"], s["style_hint"], BRANCHES[b],
                              current["prompt"], current, base_tried + collected,
-                             N_PROPOSALS, axis=axis)
+                             target, axis=axis, push=stale)
         batch, raw = qwen_propose(model, processor, s["target_path"],
-                                  Path(current["render"]), ut, N_PROPOSALS,
+                                  Path(current["render"]), ut, target,
                                   temperature=temperature, seed=seed)
         new = 0
         truncated = [clip_truncate(p) for p in batch]
@@ -357,7 +378,7 @@ def collect_proposals(model, processor, name, s, b, t, proposals) -> list[str]:
             collected.append(p)
             collected_norm.add(k)
             new += 1
-            if len(collected) >= N_PROPOSALS:
+            if len(collected) >= target:
                 break
         # One trace line per VLM call: enough to reconstruct exactly which axis /
         # temperature / seed produced which prompts, how many were new, and the raw
@@ -570,7 +591,14 @@ def run_render(t: int):
             seen = {_norm(r["prompt"]) for r in bp}
             kept_hashes = [_phash(p) for p in
                            (Path(r["render"]) for r in bp) if p.exists()]
+            # Stop once this branch has N_PROPOSALS distinct *images* this iteration;
+            # buffered prompts beyond that are only rendered to replace duplicates.
+            # Rows already kept (e.g. on resume) count toward the target.
+            kept_this_iter = sum(1 for r in s["pool"]
+                                 if r["branch"] == b and r["iteration"] == t)
             for j, prompt in enumerate(proposals.get(f"{name}|{b}|{t}", []), start=1):
+                if kept_this_iter >= N_PROPOSALS:
+                    break
                 rp = s["base"] / b / f"iter{t:02d}_{j:02d}.png"
                 kp = _norm(prompt)
                 if str(rp) in done or not prompt or kp in seen:
@@ -597,7 +625,7 @@ def run_render(t: int):
                 row = score_prompt(prompt, s["seed"], negative, pipe, device,
                                    s["target_path"], rp, b, t, len(s["pool"]) + 1)
                 s["pool"].append(row); done.add(row["render"])
-                seen.add(kp); kept_hashes.append(h)
+                seen.add(kp); kept_hashes.append(h); kept_this_iter += 1
         tops = " ".join(
             f"{b}={select_best(b, branch_pool(s['pool'], b), 1)[0]['clip_similarity']:.3f}"
             for b in BRANCHES)
@@ -642,6 +670,32 @@ def _run_phase(worker: str, t: int):
                          f"checkpoint preserved — re-run to resume.")
 
 
+def _pick_distinct_top(rows: list[dict], k: int) -> list[dict]:
+    """Pick the k best rows (rows are already Borda-sorted) whose renders are
+    visually distinct from one another. Per-branch dedup lets the same image win
+    under several branches, so the pooled top can hide duplicates; this filters
+    them at submission. If fewer than k visually-distinct renders exist, pad with
+    the next-best (deduped) rows so the deliverable always has k entries."""
+    chosen, chosen_h, leftover = [], [], []
+    for r in rows:
+        p = Path(r["render"])
+        h = _phash(p) if p.exists() else None
+        if h is not None and chosen_h and \
+                min(_hamming(h, c) for c in chosen_h) <= IMG_DEDUP_MAX_HAM:
+            leftover.append(r)
+            continue
+        chosen.append(r)
+        if h is not None:
+            chosen_h.append(h)
+        if len(chosen) >= k:
+            return chosen
+    for r in leftover:                      # genuinely few distinct -> pad to k
+        if len(chosen) >= k:
+            break
+        chosen.append(r)
+    return chosen[:k]
+
+
 def finalize():
     state, _, _ = _load_state_with_pools()
     device = default_device()
@@ -672,7 +726,7 @@ def finalize():
     top3_rows: list[dict] = []
     for image_name, rows in all_results.items():
         stem = Path(image_name).stem
-        for rank, r in enumerate(rows[:TOP_K], start=1):
+        for rank, r in enumerate(_pick_distinct_top(rows, TOP_K), start=1):
             dest = TOP3_DIR / f"{stem}_rank{rank}_{r['branch']}_cand{r['candidate_index']:03d}.png"
             shutil.copyfile(r["render"], dest)
             top3_rows.append({**r, "submission_rank": rank, "top3_render": str(dest)})
