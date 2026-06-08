@@ -161,6 +161,17 @@ def load_qwen(model_id: str):
     # "BFloat16 != Half" mismatch. Keep the requested dtype as-is.
     AwqQuantizer.update_dtype = lambda self, dtype: dtype
 
+    # transformers 5.x stopped re-exporting some hub symbols (create_repo,
+    # list_repo_tree, ...) that the stock gptqmodel 7.0.0 imports at module load
+    # during from_pretrained's AWQ path. Inject them from huggingface_hub so the
+    # unpatched gptqmodel imports cleanly, instead of hand-editing site-packages.
+    import huggingface_hub as _hf
+    from transformers.utils import hub as _th
+    for _name in ("create_repo", "list_repo_tree", "has_file", "cached_file",
+                  "hf_hub_download", "snapshot_download"):
+        if not hasattr(_th, _name) and hasattr(_hf, _name):
+            setattr(_th, _name, getattr(_hf, _name))
+
     print(f"Loading {model_id} ...")
     # Two fixes to the model's AWQ config for transformers 5.x + gptqmodel:
     #
