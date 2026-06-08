@@ -1,0 +1,206 @@
+{
+  "1159_25.png": {
+    "clip": {
+      "prompt": "Glass of fresh orange juice, enhanced by scattered citrus pieces, rendered in photorealistic style.",
+      "render": "outputs/phase4_s7890/1159_25/clip/iter04_01.png",
+      "clip_similarity": 0.943376,
+      "lpips": 0.40452,
+      "pixel_mse": 0.018781,
+      "pixel_rmse": 0.137042
+    },
+    "lpips": {
+      "prompt": "Brightly lit glass of orange juice, surrounded by scattered orange slices, warm ambient light highlights freshness, detailed textures capture juiciness!",
+      "render": "outputs/phase4_s7890/1159_25/lpips/iter11_01.png",
+      "clip_similarity": 0.928014,
+      "lpips": 0.481869,
+      "pixel_mse": 0.030393,
+      "pixel_rmse": 0.174336
+    },
+    "mse": {
+      "prompt": "Juicy orange juice, sharp citrus pieces floating, glossy surface, warm ambient light, photorealistic!",
+      "render": "outputs/phase4_s7890/1159_25/mse/iter07_04.png",
+      "clip_similarity": 0.941668,
+      "lpips": 0.437809,
+      "pixel_mse": 0.022293,
+      "pixel_rmse": 0.14931
+    },
+    "composite": {
+      "prompt": "Clear glass filled with amber-orange juice, topped with a slice of ripe orange, scattered pieces of juicy fruit around, muted earthy tones behind, photorealistic renderings!",
+      "render": "outputs/phase4_s7890/1159_25/composite/iter11_02.png",
+      "clip_similarity": 0.936321,
+      "lpips": 0.364045,
+      "pixel_mse": 0.01695,
+      "pixel_rmse": 0.130193
+    }
+  },
+  "1159_29.png": {
+    "clip": {
+      "prompt": "the palm tree on the beach at sunset , arafed palm tree on a rock in the ocean at sunset , photorender , trees growing on its body , flooded ground , octane realphoto , under the soft shadow of a tree , hazy water , twisted trunk , water swirling , deblurring",
+      "render": "outputs/phase4_s7890/1159_29/_warm/warm.png",
+      "clip_similarity": 0.925934,
+      "lpips": 0.734242,
+      "pixel_mse": 0.048413,
+      "pixel_rmse": 0.220031
+    },
+    "lpips": {
+      "prompt": "the palm tree on the solitary rock at sundown, dense green foliage against glowing sky, photorealistic rendering, detailed bark patterns, smooth waves lapping around stones, vivid saturations, softly lit clouds",
+      "render": "outputs/phase4_s7890/1159_29/lpips/iter02_05.png",
+      "clip_similarity": 0.905716,
+      "lpips": 0.632081,
+      "pixel_mse": 0.03482,
+      "pixel_rmse": 0.186601
+    },
+    "mse": {
+      "prompt": "the tall palm tree dominating a solitary island in deep blue seas at dusk, vibrant green fronds against radiant horizon, thick trunk, jagged rocks encircle roots, calm waves wash sandy shore, soft evening light bathes scene, photorealistic render",
+      "render": "outputs/phase4_s7890/1159_29/mse/iter12_03.png",
+      "clip_similarity": 0.838543,
+      "lpips": 0.607922,
+      "pixel_mse": 0.028738,
+      "pixel_rmse": 0.169523
+    },
+    "composite": {
+      "prompt": "the tall palm tree rooted deeply in massive boulders near calm ocean waters at sunset, lush green crown casting shadows over wet sands, warm orange tones fill sky, clear blue waters reflect sunlight, textured sandy shores, dramatic clouds, serene atmosphere, photorealistic render, detailed textures, natural light reflections",
+      "render": "outputs/phase4_s7890/1159_29/composite/iter12_02.png",
+      "clip_similarity": 0.884361,
+      "lpips": 0.655569,
+      "pixel_mse": 0.036186,
+      "pixel_rmse": 0.190226
+    }
+  },
+  "1159_3.png": {
+    "clip": {
+      "prompt": "a resolute blonde female warrior wielding flames, detailed tactical gear, dramatic shadows, vivid oranges, deep blacks, textured appearance, assertive posture, symmetrical composition, digital painting style, soft brushstrokes",
+      "render": "outputs/phase4_s7890/1159_3/clip/iter10_01.png",
+      "clip_similarity": 0.826675,
+      "lpips": 0.642423,
+      "pixel_mse": 0.045388,
+      "pixel_rmse": 0.213044
+    },
+    "lpips": {
+      "prompt": "Ash-haired girl wielding flaming swords, detailed metal armor gleaming under heat, vibrant orange hues highlighting her features, dynamic pose conveying strength, asymmetrical artwork emphasizing raw emotion, 官式角色插画风格",
+      "render": "outputs/phase4_s7890/1159_3/lpips/iter10_01.png",
+      "clip_similarity": 0.800522,
+      "lpips": 0.599963,
+      "pixel_mse": 0.037146,
+      "pixel_rmse": 0.192734
+    },
+    "mse": {
+      "prompt": "a fierce ash-haired warrior wielding glowing spears, vibrant amber-red flames emanating from them, detailed silver armor reflecting beams of light, dynamic pose exuding strength, bold tones heightening dramatic mood",
+      "render": "outputs/phase4_s7890/1159_3/mse/iter11_04.png",
+      "clip_similarity": 0.739726,
+      "lpips": 0.615972,
+      "pixel_mse": 0.03101,
+      "pixel_rmse": 0.176095
+    },
+    "composite": {
+      "prompt": "a determined ash-haired girl summoning fireballs, sleek silver armor, warm bronze tones, slightly left-aligned composition, moody atmosphere, saturated colors, intricate details, focused gaze, electric energy, striking visuals",
+      "render": "outputs/phase4_s7890/1159_3/composite/iter02_04.png",
+      "clip_similarity": 0.809639,
+      "lpips": 0.598831,
+      "pixel_mse": 0.032717,
+      "pixel_rmse": 0.18088
+    }
+  },
+  "1159_7.png": {
+    "clip": {
+      "prompt": "Hedgehog, light beige fur, charming hedgehog seated on sugary cube, Kim Keever's piece, SCP-914, distinctive creation, checkered spikes, transparent sugar blocks",
+      "render": "outputs/phase4_s7890/1159_7/clip/iter04_03.png",
+      "clip_similarity": 0.789506,
+      "lpips": 0.564969,
+      "pixel_mse": 0.032114,
+      "pixel_rmse": 0.179204
+    },
+    "lpips": {
+      "prompt": "Hedgehog, pale gold fur, tiny hedgehog perched on sugary blocks, Kim Keever’s art, SCP-914, unique design, checkered spines, transparent cube, ultra-plush, furry face, optical illusion, slightly tilted perspective",
+      "render": "outputs/phase4_s7890/1159_7/lpips/iter03_01.png",
+      "clip_similarity": 0.745852,
+      "lpips": 0.582499,
+      "pixel_mse": 0.029051,
+      "pixel_rmse": 0.170444
+    },
+    "mse": {
+      "prompt": "Hedgehog, sandy beige coat, sparkling quills, sponge-like surface, Kim Keever’s painting, SCP-914, detailed motifs, checkered spikes, frosted glass cube, soft ambient lighting pre-dawn",
+      "render": "outputs/phase4_s7890/1159_7/mse/iter12_05.png",
+      "clip_similarity": 0.683203,
+      "lpips": 0.576582,
+      "pixel_mse": 0.01461,
+      "pixel_rmse": 0.120872
+    },
+    "composite": {
+      "prompt": "Hedgehog, light beige fur, minuscule hedgehog seated on sugary squares, Kim Keever's piece, SCP-914, unique design, checkered spines, lucid cube, monstrously fluffy, plume-like head, softly lit backdrop, slightly elevated viewpoint",
+      "render": "outputs/phase4_s7890/1159_7/composite/iter09_01.png",
+      "clip_similarity": 0.791663,
+      "lpips": 0.597671,
+      "pixel_mse": 0.028562,
+      "pixel_rmse": 0.169004
+    }
+  },
+  "7836.png": {
+    "clip": {
+      "prompt": "The astronaut, lone figure standing on the rusted planet’s surface angled toward a luminous sunburst, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4_s7890/7836/clip/iter11_04.png",
+      "clip_similarity": 0.907251,
+      "lpips": 0.583994,
+      "pixel_mse": 0.017951,
+      "pixel_rmse": 0.133981
+    },
+    "lpips": {
+      "prompt": "The astronaut, astronaut standing on the rust-colored planet's surface with a shimmering nebula overhead, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4_s7890/7836/lpips/iter09_02.png",
+      "clip_similarity": 0.907287,
+      "lpips": 0.462944,
+      "pixel_mse": 0.012384,
+      "pixel_rmse": 0.111282
+    },
+    "mse": {
+      "prompt": "The astronaut, astronaut standing on the rust-colored planet's surface under a starlit sky filled with swirling nebulae, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4_s7890/7836/mse/iter05_01.png",
+      "clip_similarity": 0.80981,
+      "lpips": 0.520277,
+      "pixel_mse": 0.012717,
+      "pixel_rmse": 0.112768
+    },
+    "composite": {
+      "prompt": "Astronaut, astronaut standing on the reddish-brown planet's surface under swirling nebulae, flat matte painting, vertical wallpaper",
+      "render": "outputs/phase4_s7890/7836/composite/iter05_04.png",
+      "clip_similarity": 0.92611,
+      "lpips": 0.471138,
+      "pixel_mse": 0.009965,
+      "pixel_rmse": 0.099823
+    }
+  },
+  "9338.png": {
+    "clip": {
+      "prompt": "Rainbow-colored hamster, painting of a mouse with vivid hues and textured fur, Julie Dillon style, warm volumetric lighting, squirrel king artwork, showcased",
+      "render": "outputs/phase4_s7890/9338/clip/iter05_03.png",
+      "clip_similarity": 0.887545,
+      "lpips": 0.554743,
+      "pixel_mse": 0.021955,
+      "pixel_rmse": 0.148172
+    },
+    "lpips": {
+      "prompt": "Rainbow hamster, Julie Dillon's technique, intense colors, ambient lighting, squirrel king illustration, Dribble hit, detailed strokes",
+      "render": "outputs/phase4_s7890/9338/lpips/iter08_03.png",
+      "clip_similarity": 0.841912,
+      "lpips": 0.531363,
+      "pixel_mse": 0.018193,
+      "pixel_rmse": 0.134881
+    },
+    "mse": {
+      "prompt": "Vibrant hamster, bold hues, intense saturation, detailed fur, dynamic pose, Julie Dillon painting, volumetric lighting, squirrel king illustration, Dribble exhibit, Andrew Stevovich rendering technique",
+      "render": "outputs/phase4_s7890/9338/mse/iter12_03.png",
+      "clip_similarity": 0.800098,
+      "lpips": 0.567155,
+      "pixel_mse": 0.012156,
+      "pixel_rmse": 0.110252
+    },
+    "composite": {
+      "prompt": "A radiant rainbow hamster, detailed painting showcasing a furry rodent adorned with vivid colors, Julie Dillon’s unique touch, dynamic rainbow illumination, playful tails, often found in galleries, softly focused photo-style renderings, resembling andrew stevovich’s work, rendered digital art.",
+      "render": "outputs/phase4_s7890/9338/composite/iter04_02.png",
+      "clip_similarity": 0.862704,
+      "lpips": 0.51132,
+      "pixel_mse": 0.03228,
+      "pixel_rmse": 0.179668
+    }
+  }
+}
