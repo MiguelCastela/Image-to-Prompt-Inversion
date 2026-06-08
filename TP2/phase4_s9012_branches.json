@@ -1,0 +1,206 @@
+{
+  "1159_25.png": {
+    "clip": {
+      "prompt": "Close-up view of an inviting glass containing vivid orange juice, garnished with slices of ripe oranges, natural lighting enhancing realism!",
+      "render": "outputs/phase4_s9012/1159_25/clip/iter01_03.png",
+      "clip_similarity": 0.946379,
+      "lpips": 0.466396,
+      "pixel_mse": 0.030123,
+      "pixel_rmse": 0.173559
+    },
+    "lpips": {
+      "prompt": "Crisp orange juice froths in a clear glass, garnished with a slice of orange, sprinkled with diced orange pieces, bathed in warm natural light.",
+      "render": "outputs/phase4_s9012/1159_25/lpips/iter12_01.png",
+      "clip_similarity": 0.888914,
+      "lpips": 0.347091,
+      "pixel_mse": 0.019544,
+      "pixel_rmse": 0.139799
+    },
+    "mse": {
+      "prompt": "Vibrant orange juice in a clear glass, surrounded by citrus bits, deep golden tone, soft ambient light, precise positioning!",
+      "render": "outputs/phase4_s9012/1159_25/mse/iter07_02.png",
+      "clip_similarity": 0.932875,
+      "lpips": 0.390448,
+      "pixel_mse": 0.019682,
+      "pixel_rmse": 0.140294
+    },
+    "composite": {
+      "prompt": "Glass overflowing with bright orange juice, sprinkled with fruit bits, rendered photorealistically;",
+      "render": "outputs/phase4_s9012/1159_25/composite/iter12_02.png",
+      "clip_similarity": 0.90165,
+      "lpips": 0.42581,
+      "pixel_mse": 0.01789,
+      "pixel_rmse": 0.133752
+    }
+  },
+  "1159_29.png": {
+    "clip": {
+      "prompt": "the robust palm tree standing tall beyond frothy surf, vibrant teal ocean bathed in sunlight, thick fronds swaying gently, cloudy twilight sky, vivid hues, serene atmosphere, rendered photo-realistic",
+      "render": "outputs/phase4_s9012/1159_29/clip/iter12_03.png",
+      "clip_similarity": 0.934613,
+      "lpips": 0.634587,
+      "pixel_mse": 0.038562,
+      "pixel_rmse": 0.196372
+    },
+    "lpips": {
+      "prompt": "the palm tree on the rocky island at sunset, thick trunk with broad leaf canopy, muted lavender-blue skies with wispy clouds, gentle waves washing around",
+      "render": "outputs/phase4_s9012/1159_29/lpips/iter11_04.png",
+      "clip_similarity": 0.874741,
+      "lpips": 0.621283,
+      "pixel_mse": 0.028956,
+      "pixel_rmse": 0.170164
+    },
+    "mse": {
+      "prompt": "the palm tree on the beach at sunset, bright greens against radiant horizon, thickened trunk, rocky island base, gentle waves rolling onto sand, soft light creates serene ambiance, photorealistic render",
+      "render": "outputs/phase4_s9012/1159_29/mse/iter11_02.png",
+      "clip_similarity": 0.888854,
+      "lpips": 0.669128,
+      "pixel_mse": 0.030423,
+      "pixel_rmse": 0.174421
+    },
+    "composite": {
+      "prompt": "towering palm tree standing alone amidst rolling waves, vibrant green leaves, golden hour sun, deep turquoise ocean, smooth wet sand, serene scene, photorealistic render, intricate details, diffused sunlight",
+      "render": "outputs/phase4_s9012/1159_29/composite/iter07_01.png",
+      "clip_similarity": 0.878934,
+      "lpips": 0.581082,
+      "pixel_mse": 0.025572,
+      "pixel_rmse": 0.159911
+    }
+  },
+  "1159_3.png": {
+    "clip": {
+      "prompt": "Ash-haired female warrior unleashing fire, detailed tactical gear, dynamic stance, fiery backdrop, sharp contrast colors, intense expression, dramatic light, asymmetrical composition",
+      "render": "outputs/phase4_s9012/1159_3/clip/iter08_03.png",
+      "clip_similarity": 0.836988,
+      "lpips": 0.633648,
+      "pixel_mse": 0.045985,
+      "pixel_rmse": 0.21444
+    },
+    "lpips": {
+      "prompt": "a resolute ash-haired lady summoning searing force, detailed gear, vivid oranges, smoky atmosphere, precise detailing",
+      "render": "outputs/phase4_s9012/1159_3/lpips/iter02_03.png",
+      "clip_similarity": 0.800763,
+      "lpips": 0.567043,
+      "pixel_mse": 0.035983,
+      "pixel_rmse": 0.189691
+    },
+    "mse": {
+      "prompt": "A resolute",
+      "render": "outputs/phase4_s9012/1159_3/mse/iter03_02.png",
+      "clip_similarity": 0.736024,
+      "lpips": 0.626688,
+      "pixel_mse": 0.028229,
+      "pixel_rmse": 0.168015
+    },
+    "composite": {
+      "prompt": "a resolute blonde fighter harnessing fire, futuristic armor, smoky environment, balanced composition, vivid colors, deep shadows, sharp lines, intense focus, explosive effect, refined art",
+      "render": "outputs/phase4_s9012/1159_3/composite/iter04_05.png",
+      "clip_similarity": 0.811758,
+      "lpips": 0.578327,
+      "pixel_mse": 0.027248,
+      "pixel_rmse": 0.165068
+    }
+  },
+  "1159_7.png": {
+    "clip": {
+      "prompt": "A hedgehog, there is a small hedgehog sitting on top of a block of cake, crystalline translucent hair, by Kim Keever, scp-914, unique design, checkered spiked hair, translucent cube, outrageously fluffy, feathered head, optical illusions, moody atmospheric lighting",
+      "render": "outputs/phase4_s9012/1159_7/clip/iter04_05.png",
+      "clip_similarity": 0.770427,
+      "lpips": 0.683511,
+      "pixel_mse": 0.04251,
+      "pixel_rmse": 0.206178
+    },
+    "lpips": {
+      "prompt": "hedgehog , pale gold fur , tiny hedgehog sitting on sugary blocks , kim keever ’ s piece , scp - 9 1 4 , unique design , checkered spines , transparent cube , outrageously fluffy , furry face , optical illusion , tight framing , warm backlighting , faint glows",
+      "render": "outputs/phase4_s9012/1159_7/lpips/iter12_04.png",
+      "clip_similarity": 0.769323,
+      "lpips": 0.555678,
+      "pixel_mse": 0.025595,
+      "pixel_rmse": 0.159985
+    },
+    "mse": {
+      "prompt": "Hedgehog, golden-brown fur, glossy spines, cotton candy look, Kim Keever's painting, SCP-914, distinctive design, crisscross spikes, transparent sugar cubes, outrageously fluffy, fluffy head, optical illusion, natural daylight, front-facing position",
+      "render": "outputs/phase4_s9012/1159_7/mse/iter10_05.png",
+      "clip_similarity": 0.704574,
+      "lpips": 0.531312,
+      "pixel_mse": 0.017744,
+      "pixel_rmse": 0.133207
+    },
+    "composite": {
+      "prompt": "Hedgehog, pale yellow fur, charming hedgehog perched above sugary cube, Kim Keever's masterpiece, SCP-914, intricate sculpture, checkered spikes, translucent sugar blocks, warm light, sunset",
+      "render": "outputs/phase4_s9012/1159_7/composite/iter05_01.png",
+      "clip_similarity": 0.708445,
+      "lpips": 0.544652,
+      "pixel_mse": 0.017818,
+      "pixel_rmse": 0.133484
+    }
+  },
+  "7836.png": {
+    "clip": {
+      "prompt": "Astronaut, astronaut standing on the reddish-brown planet's surface with a glowing sun casting long shadows, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4_s9012/7836/clip/iter08_03.png",
+      "clip_similarity": 0.886543,
+      "lpips": 0.561047,
+      "pixel_mse": 0.01911,
+      "pixel_rmse": 0.138238
+    },
+    "lpips": {
+      "prompt": "The astronaut, astronaut positioned at edge of reddish-orange planet, starlit cosmos above, vibrant deep blues and warm oranges mix, detailed planetary relief, distant nebulae, serene cosmic panorama, vertical wallpaper",
+      "render": "outputs/phase4_s9012/7836/lpips/iter12_02.png",
+      "clip_similarity": 0.908227,
+      "lpips": 0.390945,
+      "pixel_mse": 0.011448,
+      "pixel_rmse": 0.106997
+    },
+    "mse": {
+      "prompt": "The astronaut, astronaut standing on the reddish-brown planet's surface under deep blue starry sky, flat matte painting, vertical wallpaper, glowing horizon, distant galaxy, cover art, muted tones",
+      "render": "outputs/phase4_s9012/7836/mse/iter01_01.png",
+      "clip_similarity": 0.861085,
+      "lpips": 0.437753,
+      "pixel_mse": 0.011694,
+      "pixel_rmse": 0.108138
+    },
+    "composite": {
+      "prompt": "Astronaut, astronaut standing on the reddish-brown planet's surface with a glowing nebula diffused over the landscape, flat matte painting, vertical wallpaper, to infinity and beyond, gazing off into the horizon, cover art, dark blurry background",
+      "render": "outputs/phase4_s9012/7836/composite/iter11_01.png",
+      "clip_similarity": 0.889766,
+      "lpips": 0.432633,
+      "pixel_mse": 0.009922,
+      "pixel_rmse": 0.099607
+    }
+  },
+  "9338.png": {
+    "clip": {
+      "prompt": "Rainbow-colored hamster, vibrant mural of a mouse with rich hues and textured fur, Julie Dillon's method, warm volumetric lighting, squirrel king illustration, featured on Dribble, soft photographic color scheme, Andrew Stevovich rendering",
+      "render": "outputs/phase4_s9012/9338/clip/iter12_05.png",
+      "clip_similarity": 0.876433,
+      "lpips": 0.556863,
+      "pixel_mse": 0.01729,
+      "pixel_rmse": 0.13149
+    },
+    "lpips": {
+      "prompt": "Rainbow-colored hamster, detailed painting, Julie Dillon style, rich saturation, swirling rainbow backdrop, squirrel king artwork, Dribble feature, refined fur structure, Andrew Stevovich rendering",
+      "render": "outputs/phase4_s9012/9338/lpips/iter06_01.png",
+      "clip_similarity": 0.85516,
+      "lpips": 0.456252,
+      "pixel_mse": 0.024478,
+      "pixel_rmse": 0.156455
+    },
+    "mse": {
+      "prompt": "Vibrant hamster, brilliant colors, intense saturation, meticulous details, lively posture, Julie Dillon painting, striking lights, squirrel king motif, Dribble feature, Andrew Stevovich method",
+      "render": "outputs/phase4_s9012/9338/mse/iter02_03.png",
+      "clip_similarity": 0.798898,
+      "lpips": 0.548231,
+      "pixel_mse": 0.01353,
+      "pixel_rmse": 0.11632
+    },
+    "composite": {
+      "prompt": "A radiant rainbow hamster, painting of a furry rodent adorned with vivid colors, Julie Dillon’s artistic flair, dynamic rainbow illumination, whimsical tails, celebrated online, soft-focused photo effect, echoing Andrew Stevovich’s approach, rendered digital art.",
+      "render": "outputs/phase4_s9012/9338/composite/iter11_05.png",
+      "clip_similarity": 0.847457,
+      "lpips": 0.507133,
+      "pixel_mse": 0.030154,
+      "pixel_rmse": 0.17365
+    }
+  }
+}
