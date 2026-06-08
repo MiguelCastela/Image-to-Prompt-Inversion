@@ -1,7 +1,7 @@
 # Fdb version 4
-["pdflatex"] 1780872213.65217 "/home/castela/Documents/GitHub/Gen-AI/TP2/report/main.tex" "main.pdf" "main" 1780872214.36202 0
+["pdflatex"] 1780944485.925 "/home/castela/Documents/GitHub/Gen-AI/TP2/report/main.tex" "main.pdf" "main" 1780944486.34252 0
   "/etc/texmf/web2c/texmf.cnf" 1759240955.47625 475 c0e671620eb5563b2130f56340a5fde8 ""
-  "/home/castela/Documents/GitHub/Gen-AI/TP2/report/main.tex" 1780872212.50894 27472 b7f7677c388090708b597693647c82de ""
+  "/home/castela/Documents/GitHub/Gen-AI/TP2/report/main.tex" 1780944485.37761 37394 635e4df9262af34aee709ed988424251 ""
   "/usr/share/texlive/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecbx0700.tfm" 1136768653 3584 ca0c423beaacd28d53ddce5a826cd558 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecbx0900.tfm" 1136768653 3584 1a7de6c99457381c64abc1a7c545505f ""
@@ -9,7 +9,6 @@
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecbx1200.tfm" 1136768653 3584 402da0b29eafbad07963b1224b222f18 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecbx1440.tfm" 1136768653 3584 13049b61b922a28b158a38aeff75ee9b ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/eccc1000.tfm" 1136768653 3072 0e825b3b77feef5bf88d50fba1209c90 ""
-  "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecrm0500.tfm" 1136768653 3584 178baad7ffca7f5d3428a83bd7cc64c3 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecrm0700.tfm" 1136768653 3584 cf973739aac7ab6247f9150296af7954 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecrm0900.tfm" 1136768653 3584 d3d8ac8b25ca19c0a40b86a5db1e8ccc ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/ecrm1000.tfm" 1136768653 3584 adb004a0c8e7c46ee66cad73671f37b4 ""
@@ -106,8 +105,8 @@
   "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1780530752.75468 5349216 bf3a80e68d946c7acd95ff030fd9bb63 ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1765048670 6831113 04fbb955ff855468cbb39d43faa3b15f ""
-  "main.aux" 1780872214.21297 5102 e877a9637e5f41b4592cdd26edc02e56 "pdflatex"
-  "main.tex" 1780872212.50894 27472 b7f7677c388090708b597693647c82de ""
+  "main.aux" 1780944486.26023 5656 8ad632ab8309a39ef10d8f485eb94cdc "pdflatex"
+  "main.tex" 1780944485.37761 37394 635e4df9262af34aee709ed988424251 ""
   (generated)
   "main.aux"
   "main.log"
