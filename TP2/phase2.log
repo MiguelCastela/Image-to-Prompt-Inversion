@@ -1,64 +1,0 @@
-Skipping import of cpp extensions due to incompatible torch version. Please upgrade to torch >= 2.11.0 (found 2.10.0+cu128).
-Loading Qwen/Qwen2.5-VL-7B-Instruct-AWQ ...
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-
-WARN  Python GIL is enabled: Multi-gpu quant acceleration for MoE models is sub-optimal and multi-core accelerated cpu packing is also disabled. We recommend Python >= 3.13.3t with Pytorch > 2.8 for mult-gpu quantization and multi-cpu packing with env `PYTHON_GIL=0`.
-INFO  ENV: Auto setting PYTORCH_ALLOC_CONF='expandable_segments:True,max_split_size_mb:256,garbage_collection_threshold:0.7' for memory saving.
-INFO  ENV: Auto setting CUDA_DEVICE_ORDER=PCI_BUS_ID for correctness.          
-INFO  
-
-┌─────────────┐    ┌────────────────────────┐    ┌────────────┐    ┌─────────┐
-│ GPT-QModel  │ -> │ ▓▓▓▓▓▓▓▓▓▓▓▓ 16bit     │ -> │ ▒▒▒▒ 8bit  │ -> │ ░░ 4bit │
-└─────────────┘    └────────────────────────┘    └────────────┘    └─────────┘
-GPT-QModel   : 7.0.0+9811748
-Transformers : 5.10.2
-Torch        : 2.10.0+cu128
-Triton       : 3.6.0
-INFO  Kernel: selected: `AwqGEMMTritonLinear`                                  
-Loading weights:   0%|          | 0/1121 [00:00<?, ?it/s]Loading weights:   0%|          | 1/1121 [00:00<15:49,  1.18it/s]Loading weights:   3%|▎         | 33/1121 [00:00<00:23, 47.10it/s]Loading weights:   7%|▋         | 80/1121 [00:01<00:08, 116.81it/s]Loading weights:  11%|█         | 122/1121 [00:01<00:05, 175.18it/s]Loading weights:  15%|█▍        | 163/1121 [00:01<00:04, 225.29it/s]Loading weights:  19%|█▉        | 211/1121 [00:01<00:03, 280.83it/s]Loading weights:  22%|██▏       | 251/1121 [00:01<00:02, 310.41it/s]Loading weights:  26%|██▌       | 291/1121 [00:01<00:02, 329.83it/s]Loading weights:  31%|███       | 342/1121 [00:01<00:02, 354.33it/s]Loading weights:  35%|███▌      | 394/1121 [00:01<00:01, 395.24it/s]Loading weights:  39%|███▉      | 442/1121 [00:01<00:01, 417.37it/s]Loading weights:  43%|████▎     | 487/1121 [00:02<00:01, 413.04it/s]Loading weights:  47%|████▋     | 531/1121 [00:02<00:01, 408.81it/s]Loading weights:  51%|█████▏    | 576/1121 [00:02<00:01, 414.76it/s]Loading weights:  56%|█████▌    | 627/1121 [00:02<00:01, 438.16it/s]Loading weights:  60%|█████▉    | 672/1121 [00:02<00:01, 438.66it/s]Loading weights:  64%|██████▍   | 717/1121 [00:02<00:00, 419.59it/s]Loading weights:  70%|███████   | 786/1121 [00:02<00:00, 494.91it/s]Loading weights:  75%|███████▌  | 843/1121 [00:02<00:00, 508.69it/s]Loading weights:  81%|████████  | 907/1121 [00:02<00:00, 541.36it/s]Loading weights:  86%|████████▋ | 969/1121 [00:02<00:00, 557.13it/s]Loading weights:  92%|█████████▏| 1027/1121 [00:03<00:00, 560.27it/s]Loading weights:  97%|█████████▋| 1089/1121 [00:03<00:00, 572.52it/s]Loading weights: 100%|██████████| 1121/1121 [00:03<00:00, 343.37it/s]
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/generation_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/generation_config.json "HTTP/1.1 200 OK"
-INFO  gc.collect() reclaimed 251 objects in 0.139s                             
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/chat_template.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/chat_template.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/config.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/tokenizer_config.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/video_preprocessor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/video_preprocessor_config.json "HTTP/1.1 404 Not Found"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
-INFO:httpx:HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/536a35794df8831aa814970ee8f89eff577e7718/preprocessor_config.json "HTTP/1.1 200 OK"
-Model loaded.
-
-Sampling: do_sample=True temperature=0.7 top_p=0.9 seed=1234
-
-── 1159_25.png ──
-  Generated 2 variations. First 3:
-    1. orange juice, glass, sliced oranges, wooden board, scattered pieces, warm lighting, realistic, photorealistic, 3D, smooth, SCP-914, unsplash photography
-    2. orange juice, glass, sliced oranges, wooden board, scattered pieces, warm lighting, realistic, photorealistic, smooth, octane realphoto, top milk brands, white border, SCP-914, unsplash photography
-
-── 1159_29.png ──

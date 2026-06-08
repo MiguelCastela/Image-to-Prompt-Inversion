@@ -134,7 +134,7 @@ A second challenge was ensuring diversity among candidates, given that the model
 
 \noindent
 \\
-For each target, at each iteration, and separately for each of the four metric branches, the proposal step loops the VLM until it has gathered \textbf{eight distinct prompts}, with five it intends to keep plus three spares (\texttt{N\_PROPOSALS}~=~$5$, \texttt{IMG\_RETRY\_BUFFER}~=~$3$). To further reduce collapse, we apply a \textbf{repetition penalty} ($1.2$), which discourages the model from reusing tokens it has already generated in the same output sequence. This directly targets a failure mode where, after producing a strong first prompt, the model tends to replicate it across the remaining numbered slots in the same call. This penalty reduces the probability of repeating previously generated tokens, thereby breaking this within-call cloning behaviour while still allowing necessary shared words such as the subject.
+For each target, at each iteration, and separately for each of the four metric branches, the proposal step loops the VLM until it has gathered \textbf{eight distinct prompts}, with five it intends to keep plus three spares (\texttt{N\_PROPOSALS}~=~$5$, \texttt{IMG\_RETRY\_BUFFER}~=~$3$). It gives up on a branch only if it cannot reach eight within a hard cap of \textbf{twelve VLM calls} (\texttt{PROPOSE\_MAX\_CALLS}~=~$12$) or after five \emph{consecutive} calls that add nothing new (\texttt{PROPOSE\_PATIENCE}~=~$5$). In practice this backstop almost never binds: across our runs the proposal step recovered all eight distinct prompts in roughly \textbf{99\%} of collection rounds, so the search is normally limited by render-level duplication rather than by the model's ability to produce fresh wordings. To further reduce collapse, we apply a \textbf{repetition penalty} ($1.2$), which discourages the model from reusing tokens it has already generated in the same output sequence. This directly targets a failure mode where, after producing a strong first prompt, the model tends to replicate it across the remaining numbered slots in the same call. This penalty reduces the probability of repeating previously generated tokens, thereby breaking this within-call cloning behaviour while still allowing necessary shared words such as the subject.
 
 \noindent
 Diversity is further encouraged through three additional mechanisms. First, a rotating description \textbf{axis} is used where each call is assigned a deterministic aspect (subject form, colour palette, lighting, composition, medium, or background) that it is instructed to vary, with the axis cycling in a fixed round-robin order across calls and shifting per iteration to avoid repetition patterns. Second, an \textbf{escalating temperature} is applied, so if a call fails to produce new prompts, the temperature is increased by $+0.15$ per consecutive failure up to a maximum of $1.20$. In addition, a conditional “diverge harder” instruction is appended to the user message (which contains all the per-call, changing state) when the proposal step stalls, explicitly pushing the model to abandon local paraphrasing and re-describe the target from scratch rather than making incremental edits to previous prompts. The unique prompts are then rendered and filtered at the image level, so any render that is effectively identical to one already kept this iteration render-level duplicates are filtered using a small dHash perceptual-hash distance (where exact matches are removed, corresponding to cases where different prompts produce identical renders, like for trailing or ignored tokens) and are discarded. The three \texttt{IMG\_RETRY\_BUFFER} spares refill these slot, so every branch still can land distinct reconstructions.
@@ -143,7 +143,7 @@ Diversity is further encouraged through three additional mechanisms. First, a ro
 Before settling on the current pipeline that passes the 6 initial pronts straight to the LCM, we explored an alternative where these initial prompts were expanded into 30 variations with the same VLM, rendered and the best kept. This never let the model see how its own prompts rendered, so it could not correct a specific mistake, which would make these initial renders worse that the ones in our current setup before refinment (explained at the beginning of (Section~\ref{sec:stage2}).
 
 \section{Experimental Setup}
-The pipeline shares one frozen generator and one fixed evaluator, with only the prompt search being stochastic. Because the search is the sole source of randomness, every component that relies on it fixes an explicit seed, making our 5 runs reproducible. Table~\ref{tab:repro} is the \textbf{reproducibility matrix} and it lists everything needed to reproduce our results:
+The pipeline shares one frozen generator and one fixed evaluator, with only the prompt search being stochastic. Because the search is the sole source of randomness, every component that relies on it fixes an explicit seed, making our runs reproducible. A deliberate design choice supports this: \textbf{every model in the pipeline is open-weights and run locally}, the LCM generator, both Stage~1 captioners, the Stage~2 VLM, and both evaluators. We avoided closed, API-only models on purpose, because genuine reproducibility requires that the exact checkpoints can be pinned by version and re-run by anyone, whereas a model behind an API can be silently updated or deprecated, which would make the same prompts render differently and quietly invalidate every number reported here. Table~\ref{tab:repro} is the \textbf{reproducibility matrix} and it lists everything needed to reproduce our results:
 
 \begin{table}[H]
 \centering
@@ -356,6 +356,37 @@ For each target, the three submitted prompts are the CLIP-, LPIPS- and MSE-best 
  & lpips & Brightly colored hamster, stylized graphic design, Julie Dillon's flair, saturated tones, striking lights, squirrel king poster, Dribble sensation, textured look & $0.874$ & $0.124$ & $0.451$ \\
  & mse & Vibrant hamster, bold colors, intense saturation, fine details, dynamic movement, Julie Dillon painting, striking lights, squirrel king illustration, Dribble highlight, Andrew Stevovich rendering method & $0.818$ & $0.112$ & $0.541$ \\
 \bottomrule
+\end{tabular}
+\end{table}
+
+\clearpage
+\section*{Annex B: Per-seed Borda rank-1 reconstructions}
+\addcontentsline{toc}{section}{Annex B: Per-seed Borda rank-1 reconstructions}
+\label{annex:borda}
+For each optimiser seed and each target, this annex shows the single best candidate under the \textbf{Borda rank-average}: the composite that averages a candidate's per-target CLIP, LPIPS and pixel-MSE ranks (lower is better), which is the criterion the pipeline uses to order its submitted top-3. Seed $7890$ is the partial fifth run ($11$ of $12$ iterations); it is included here for completeness, while the other four seeds are complete. Figure~\ref{fig:bordagrid} shows the renders and Table~\ref{tab:bordatop1} the numeric scores. Read across a row to see how a single seed's best reconstruction varies by target, and down a column to see how the four-and-a-bit seeds independently converge on the same target.
+
+\begin{figure}[H]
+\centering
+\setlength{\tabcolsep}{1.2pt}
+\renewcommand{\arraystretch}{0.4}
+\begin{tabular}{c@{\hskip 2pt}cccccc}
+\input{_annexB_grid.tex}
+\end{tabular}
+\caption{Borda rank-1 reconstruction per optimiser seed (rows) and target (columns), with the target images on top for reference. All renders use the fixed LCM configuration with the seed from the filename.}
+\label{fig:bordagrid}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Per-seed Borda rank-1 candidate for each target: image-side metrics and the branch that produced it. Composite is the within-target rank-average ($1$ = best). Seed $7890$ is the partial fifth run.}
+\label{tab:bordatop1}
+\scriptsize
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{p{1.7cm} l l c c c c}
+\toprule
+\textbf{Target} & \textbf{Seed} & \textbf{Branch} & \textbf{CLIP\,$\uparrow$} & \textbf{RMSE\,$\downarrow$} & \textbf{LPIPS\,$\downarrow$} & \textbf{Composite\,$\downarrow$} \\
+\midrule
+\input{_annexB_table.tex}
 \end{tabular}
 \end{table}
 

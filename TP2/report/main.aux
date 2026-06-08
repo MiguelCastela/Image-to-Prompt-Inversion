@@ -22,18 +22,18 @@
 \@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Initial prompt:}}{6}{}\protected@file@percent }
 \newlabel{par:eight}{{3.4}{6}{}{}{}}
 \@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Diversity across candidates:}}{6}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Setup}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Setup}{8}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Reproducibility matrix}}{8}{}\protected@file@percent }
 \newlabel{tab:repro}{{1}{8}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Seeds and sampling temperature}{8}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Two kinds of seed.}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Seeds and sampling temperature}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Two kinds of seed.}}{9}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Temperature.}}{9}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Analysis of the Results}{9}{}\protected@file@percent }
 \newlabel{sec:results}{{5}{9}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Aggregate metrics across the test set}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Aggregate metrics across the test set}{10}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Aggregate image-side metrics over the four-seed pool (mean$\pm $std). CLIP higher is better; LPIPS, pixel MSE and the composite all lower is better. The composite is the within-target rank-average ($1$ = best) and so scales with the per-target pool size ($\approx 230$ candidates); the warm start (Stage~1 initial prompt, before refinement) is shown separately for reference.}}{10}{}\protected@file@percent }
 \newlabel{tab:aggregate}{{2}{10}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Best candidate per branch}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Best candidate per branch}{11}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Best candidate per branch, evaluated on the branch's own objective and averaged over six targets $\times $ four seeds ($n{=}24$). Bold marks the metric each branch optimises. The composite branch is selected by the rank-average and shown for comparison.}}{11}{}\protected@file@percent }
 \newlabel{tab:perbranch}{{3}{11}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Best reconstruction per metric}{11}{}\protected@file@percent }
@@ -59,4 +59,10 @@
 \newlabel{annex:top3}{{6}{16}{}{}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Full submitted top-3 prompts per target, with image-side metrics. ``Selected by'' is the objective the render is best under.}}{17}{}\protected@file@percent }
 \newlabel{tab:annex-top3}{{5}{17}{}{}{}}
-\gdef \@abspage@last{17}
+\@writefile{toc}{\contentsline {section}{Annex B: Per-seed Borda rank-1 reconstructions}{18}{}\protected@file@percent }
+\newlabel{annex:borda}{{6}{18}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Borda rank-1 reconstruction per optimiser seed (rows) and target (columns), with the target images on top for reference. All renders use the fixed LCM configuration with the seed from the filename.}}{18}{}\protected@file@percent }
+\newlabel{fig:bordagrid}{{5}{18}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Per-seed Borda rank-1 candidate for each target: image-side metrics and the branch that produced it. Composite is the within-target rank-average ($1$ = best). Seed $7890$ is the partial fifth run.}}{19}{}\protected@file@percent }
+\newlabel{tab:bordatop1}{{6}{19}{}{}{}}
+\gdef \@abspage@last{19}

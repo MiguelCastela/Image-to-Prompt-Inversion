@@ -1,0 +1,357 @@
+{
+  "metadata": {
+    "model_id": "SimianLuo/LCM_Dreamshaper_v7",
+    "num_inference_steps": 8,
+    "guidance_scale": 8.0,
+    "original_inference_steps": 50,
+    "width": 768,
+    "height": 768,
+    "device": "cuda",
+    "dtype": "float16",
+    "seed_policy": "leading digits of target filename (fallback 2026)",
+    "top_k": 3,
+    "n_images": 6,
+    "n_candidates_total": 180,
+    "metrics": [
+      "clip_similarity",
+      "lpips",
+      "pixel_mse",
+      "pixel_rmse"
+    ],
+    "ranking": "composite = mean(rank_clip, rank_lpips, rank_mse)",
+    "generated_at": "2026-06-06T18:09:10.670540+00:00"
+  },
+  "aggregate": {
+    "all_candidates": {
+      "clip_similarity": {
+        "mean": 0.818625,
+        "std": 0.086205,
+        "min": 0.58283,
+        "max": 0.933334,
+        "n": 180
+      },
+      "lpips": {
+        "mean": 0.654024,
+        "std": 0.086995,
+        "min": 0.517677,
+        "max": 0.83326,
+        "n": 180
+      },
+      "pixel_mse": {
+        "mean": 0.038646,
+        "std": 0.014983,
+        "min": 0.01852,
+        "max": 0.089187,
+        "n": 180
+      },
+      "pixel_rmse": {
+        "mean": 0.192968,
+        "std": 0.03765,
+        "min": 0.136088,
+        "max": 0.298642,
+        "n": 180
+      }
+    },
+    "best_per_image_top1": {
+      "clip_similarity": {
+        "mean": 0.842781,
+        "std": 0.06105,
+        "min": 0.772534,
+        "max": 0.928146,
+        "n": 6
+      },
+      "lpips": {
+        "mean": 0.619799,
+        "std": 0.087942,
+        "min": 0.538216,
+        "max": 0.751389,
+        "n": 6
+      },
+      "pixel_mse": {
+        "mean": 0.032095,
+        "std": 0.012002,
+        "min": 0.019782,
+        "max": 0.0517,
+        "n": 6
+      },
+      "pixel_rmse": {
+        "mean": 0.176698,
+        "std": 0.032366,
+        "min": 0.140649,
+        "max": 0.227376,
+        "n": 6
+      }
+    },
+    "submitted_top3": {
+      "clip_similarity": {
+        "mean": 0.84329,
+        "std": 0.058392,
+        "min": 0.772534,
+        "max": 0.933334,
+        "n": 18
+      },
+      "lpips": {
+        "mean": 0.623212,
+        "std": 0.080904,
+        "min": 0.538216,
+        "max": 0.751389,
+        "n": 18
+      },
+      "pixel_mse": {
+        "mean": 0.032642,
+        "std": 0.010965,
+        "min": 0.019782,
+        "max": 0.0517,
+        "n": 18
+      },
+      "pixel_rmse": {
+        "mean": 0.178401,
+        "std": 0.029378,
+        "min": 0.140649,
+        "max": 0.227376,
+        "n": 18
+      }
+    }
+  },
+  "metric_rank_correlations_spearman": {
+    "clip_vs_lpips": 0.0158,
+    "clip_vs_mse": 0.1215,
+    "lpips_vs_mse": 0.8815
+  },
+  "per_image": {
+    "1159_25.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 10,
+      "best_prompt": "Glass of orange juice, sliced oranges, smooth!, octane realphoto.",
+      "best_clip_similarity": 0.928146,
+      "best_lpips": 0.573077,
+      "best_pixel_mse": 0.029812,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.917159,
+          "std": 0.018383,
+          "min": 0.869707,
+          "max": 0.933334,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.632332,
+          "std": 0.05181,
+          "min": 0.573077,
+          "max": 0.750397,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.041365,
+          "std": 0.011635,
+          "min": 0.029812,
+          "max": 0.067302,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.201678,
+          "std": 0.026733,
+          "min": 0.172662,
+          "max": 0.259427,
+          "n": 30
+        }
+      }
+    },
+    "1159_29.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 4,
+      "best_prompt": "Palm tree growing on rock in ocean at sunset, photorender, twisted trunk, by Robert Koehler",
+      "best_clip_similarity": 0.899739,
+      "best_lpips": 0.751389,
+      "best_pixel_mse": 0.0517,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.894043,
+          "std": 0.009455,
+          "min": 0.879612,
+          "max": 0.908693,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.775714,
+          "std": 0.013907,
+          "min": 0.751389,
+          "max": 0.801171,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.058984,
+          "std": 0.004998,
+          "min": 0.0517,
+          "max": 0.067033,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.242655,
+          "std": 0.010305,
+          "min": 0.227376,
+          "max": 0.258908,
+          "n": 30
+        }
+      }
+    },
+    "1159_3.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 9,
+      "best_prompt": "fire in hand, official character illustration, asymmetrical artwork, fireball lighting her face, ash blond hair",
+      "best_clip_similarity": 0.79081,
+      "best_lpips": 0.70925,
+      "best_pixel_mse": 0.041025,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.778318,
+          "std": 0.015932,
+          "min": 0.733754,
+          "max": 0.793535,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.718203,
+          "std": 0.006762,
+          "min": 0.70309,
+          "max": 0.727278,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.043496,
+          "std": 0.0027,
+          "min": 0.039336,
+          "max": 0.052428,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.208462,
+          "std": 0.006389,
+          "min": 0.198333,
+          "max": 0.228972,
+          "n": 30
+        }
+      }
+    },
+    "1159_7.png": {
+      "render_seed": 1159,
+      "n_candidates": 30,
+      "best_candidate_index": 8,
+      "best_prompt": "Translucent hedgehog with checkered spiked hair on a cube.",
+      "best_clip_similarity": 0.772534,
+      "best_lpips": 0.583762,
+      "best_pixel_mse": 0.026162,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.673113,
+          "std": 0.0658,
+          "min": 0.58283,
+          "max": 0.772534,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.679475,
+          "std": 0.062634,
+          "min": 0.583762,
+          "max": 0.83326,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.042475,
+          "std": 0.014762,
+          "min": 0.026162,
+          "max": 0.089187,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.20331,
+          "std": 0.034341,
+          "min": 0.161746,
+          "max": 0.298642,
+          "n": 30
+        }
+      }
+    },
+    "7836.png": {
+      "render_seed": 7836,
+      "n_candidates": 30,
+      "best_candidate_index": 2,
+      "best_prompt": "Flat matte painting, astronaut standing on the surface of a planet, cover art, dark blurry background",
+      "best_clip_similarity": 0.844276,
+      "best_lpips": 0.538216,
+      "best_pixel_mse": 0.019782,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.843615,
+          "std": 0.016373,
+          "min": 0.797433,
+          "max": 0.862919,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.545666,
+          "std": 0.007382,
+          "min": 0.517677,
+          "max": 0.552368,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.022655,
+          "std": 0.001665,
+          "min": 0.01852,
+          "max": 0.024826,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.150414,
+          "std": 0.005587,
+          "min": 0.136088,
+          "max": 0.157562,
+          "n": 30
+        }
+      }
+    },
+    "9338.png": {
+      "render_seed": 9338,
+      "n_candidates": 30,
+      "best_candidate_index": 1,
+      "best_prompt": "Rainbow hamster, julie dillon, volumetric lighting, squirrel king, dribbble, photographic color scheme, Andrew Stevovich",
+      "best_clip_similarity": 0.821182,
+      "best_lpips": 0.563103,
+      "best_pixel_mse": 0.02409,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.8055,
+          "std": 0.01595,
+          "min": 0.789818,
+          "max": 0.821182,
+          "n": 30
+        },
+        "lpips": {
+          "mean": 0.572753,
+          "std": 0.009815,
+          "min": 0.563103,
+          "max": 0.582403,
+          "n": 30
+        },
+        "pixel_mse": {
+          "mean": 0.022904,
+          "std": 0.001206,
+          "min": 0.021719,
+          "max": 0.02409,
+          "n": 30
+        },
+        "pixel_rmse": {
+          "mean": 0.15129,
+          "std": 0.003985,
+          "min": 0.147373,
+          "max": 0.155208,
+          "n": 30
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.12.6)  8 JUN 2026 22:30
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.12.6)  8 JUN 2026 23:48
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -811,19 +811,23 @@ al-lenge was en-sur-ing di-ver-sity among
  []
 
 [6]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [7]
 Overfull \hbox (31.16223pt too wide) in paragraph at lines 153--179
  [][] 
  []
 
-[7] [8]
+
+Underfull \vbox (badness 3838) has occurred while \output is active []
+
+ [8]
+[9]
 Overfull \hbox (12.63295pt too wide) in paragraph at lines 204--215
  [][] 
  []
 
-[9]
-Underfull \vbox (badness 2689) has occurred while \output is active []
-
- [10]
+[10]
 <figures/grid/1159_25__target.png, id=54, 770.88pt x 770.88pt>
 File: figures/grid/1159_25__target.png Graphic file (type png)
 <use figures/grid/1159_25__target.png>
@@ -1095,7 +1099,243 @@ LaTeX Warning: Float too large for page by 174.29904pt on input line 360.
 
 [16
 
-] [17] (./main.aux)
+] [17] (./_annexB_grid.tex
+<figures/annexB/target__1159_25.png, id=115, 770.88pt x 770.88pt>
+File: figures/annexB/target__1159_25.png Graphic file (type png)
+<use figures/annexB/target__1159_25.png>
+Package pdftex.def Info: figures/annexB/target__1159_25.png  used on input line
+ 2.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/target__1159_29.png, id=116, 770.88pt x 770.88pt>
+File: figures/annexB/target__1159_29.png Graphic file (type png)
+<use figures/annexB/target__1159_29.png>
+Package pdftex.def Info: figures/annexB/target__1159_29.png  used on input line
+ 2.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/target__1159_3.png, id=117, 770.88pt x 770.88pt>
+File: figures/annexB/target__1159_3.png Graphic file (type png)
+<use figures/annexB/target__1159_3.png>
+Package pdftex.def Info: figures/annexB/target__1159_3.png  used on input line 
+2.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/target__1159_7.png, id=118, 770.88pt x 770.88pt>
+File: figures/annexB/target__1159_7.png Graphic file (type png)
+<use figures/annexB/target__1159_7.png>
+Package pdftex.def Info: figures/annexB/target__1159_7.png  used on input line 
+2.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/target__7836.png, id=119, 770.88pt x 770.88pt>
+File: figures/annexB/target__7836.png Graphic file (type png)
+<use figures/annexB/target__7836.png>
+Package pdftex.def Info: figures/annexB/target__7836.png  used on input line 2.
+
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/target__9338.png, id=120, 770.88pt x 770.88pt>
+File: figures/annexB/target__9338.png Graphic file (type png)
+<use figures/annexB/target__9338.png>
+Package pdftex.def Info: figures/annexB/target__9338.png  used on input line 2.
+
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s1234__1159_25.png, id=121, 770.88pt x 770.88pt>
+File: figures/annexB/s1234__1159_25.png Graphic file (type png)
+<use figures/annexB/s1234__1159_25.png>
+Package pdftex.def Info: figures/annexB/s1234__1159_25.png  used on input line 
+3.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s1234__1159_29.png, id=122, 770.88pt x 770.88pt>
+File: figures/annexB/s1234__1159_29.png Graphic file (type png)
+<use figures/annexB/s1234__1159_29.png>
+Package pdftex.def Info: figures/annexB/s1234__1159_29.png  used on input line 
+3.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s1234__1159_3.png, id=123, 770.88pt x 770.88pt>
+File: figures/annexB/s1234__1159_3.png Graphic file (type png)
+<use figures/annexB/s1234__1159_3.png>
+Package pdftex.def Info: figures/annexB/s1234__1159_3.png  used on input line 3
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s1234__1159_7.png, id=124, 770.88pt x 770.88pt>
+File: figures/annexB/s1234__1159_7.png Graphic file (type png)
+<use figures/annexB/s1234__1159_7.png>
+Package pdftex.def Info: figures/annexB/s1234__1159_7.png  used on input line 3
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s1234__7836.png, id=125, 770.88pt x 770.88pt>
+File: figures/annexB/s1234__7836.png Graphic file (type png)
+<use figures/annexB/s1234__7836.png>
+Package pdftex.def Info: figures/annexB/s1234__7836.png  used on input line 3.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s1234__9338.png, id=126, 770.88pt x 770.88pt>
+File: figures/annexB/s1234__9338.png Graphic file (type png)
+<use figures/annexB/s1234__9338.png>
+Package pdftex.def Info: figures/annexB/s1234__9338.png  used on input line 3.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s3456__1159_25.png, id=127, 770.88pt x 770.88pt>
+File: figures/annexB/s3456__1159_25.png Graphic file (type png)
+<use figures/annexB/s3456__1159_25.png>
+Package pdftex.def Info: figures/annexB/s3456__1159_25.png  used on input line 
+4.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s3456__1159_29.png, id=128, 770.88pt x 770.88pt>
+File: figures/annexB/s3456__1159_29.png Graphic file (type png)
+<use figures/annexB/s3456__1159_29.png>
+Package pdftex.def Info: figures/annexB/s3456__1159_29.png  used on input line 
+4.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s3456__1159_3.png, id=129, 770.88pt x 770.88pt>
+File: figures/annexB/s3456__1159_3.png Graphic file (type png)
+<use figures/annexB/s3456__1159_3.png>
+Package pdftex.def Info: figures/annexB/s3456__1159_3.png  used on input line 4
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s3456__1159_7.png, id=130, 770.88pt x 770.88pt>
+File: figures/annexB/s3456__1159_7.png Graphic file (type png)
+<use figures/annexB/s3456__1159_7.png>
+Package pdftex.def Info: figures/annexB/s3456__1159_7.png  used on input line 4
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s3456__7836.png, id=131, 770.88pt x 770.88pt>
+File: figures/annexB/s3456__7836.png Graphic file (type png)
+<use figures/annexB/s3456__7836.png>
+Package pdftex.def Info: figures/annexB/s3456__7836.png  used on input line 4.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s3456__9338.png, id=132, 770.88pt x 770.88pt>
+File: figures/annexB/s3456__9338.png Graphic file (type png)
+<use figures/annexB/s3456__9338.png>
+Package pdftex.def Info: figures/annexB/s3456__9338.png  used on input line 4.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s5678__1159_25.png, id=133, 770.88pt x 770.88pt>
+File: figures/annexB/s5678__1159_25.png Graphic file (type png)
+<use figures/annexB/s5678__1159_25.png>
+Package pdftex.def Info: figures/annexB/s5678__1159_25.png  used on input line 
+5.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s5678__1159_29.png, id=134, 770.88pt x 770.88pt>
+File: figures/annexB/s5678__1159_29.png Graphic file (type png)
+<use figures/annexB/s5678__1159_29.png>
+Package pdftex.def Info: figures/annexB/s5678__1159_29.png  used on input line 
+5.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s5678__1159_3.png, id=135, 770.88pt x 770.88pt>
+File: figures/annexB/s5678__1159_3.png Graphic file (type png)
+<use figures/annexB/s5678__1159_3.png>
+Package pdftex.def Info: figures/annexB/s5678__1159_3.png  used on input line 5
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s5678__1159_7.png, id=136, 770.88pt x 770.88pt>
+File: figures/annexB/s5678__1159_7.png Graphic file (type png)
+<use figures/annexB/s5678__1159_7.png>
+Package pdftex.def Info: figures/annexB/s5678__1159_7.png  used on input line 5
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s5678__7836.png, id=137, 770.88pt x 770.88pt>
+File: figures/annexB/s5678__7836.png Graphic file (type png)
+<use figures/annexB/s5678__7836.png>
+Package pdftex.def Info: figures/annexB/s5678__7836.png  used on input line 5.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s5678__9338.png, id=138, 770.88pt x 770.88pt>
+File: figures/annexB/s5678__9338.png Graphic file (type png)
+<use figures/annexB/s5678__9338.png>
+Package pdftex.def Info: figures/annexB/s5678__9338.png  used on input line 5.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s9012__1159_25.png, id=139, 770.88pt x 770.88pt>
+File: figures/annexB/s9012__1159_25.png Graphic file (type png)
+<use figures/annexB/s9012__1159_25.png>
+Package pdftex.def Info: figures/annexB/s9012__1159_25.png  used on input line 
+6.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s9012__1159_29.png, id=140, 770.88pt x 770.88pt>
+File: figures/annexB/s9012__1159_29.png Graphic file (type png)
+<use figures/annexB/s9012__1159_29.png>
+Package pdftex.def Info: figures/annexB/s9012__1159_29.png  used on input line 
+6.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s9012__1159_3.png, id=141, 770.88pt x 770.88pt>
+File: figures/annexB/s9012__1159_3.png Graphic file (type png)
+<use figures/annexB/s9012__1159_3.png>
+Package pdftex.def Info: figures/annexB/s9012__1159_3.png  used on input line 6
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s9012__1159_7.png, id=142, 770.88pt x 770.88pt>
+File: figures/annexB/s9012__1159_7.png Graphic file (type png)
+<use figures/annexB/s9012__1159_7.png>
+Package pdftex.def Info: figures/annexB/s9012__1159_7.png  used on input line 6
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s9012__7836.png, id=143, 770.88pt x 770.88pt>
+File: figures/annexB/s9012__7836.png Graphic file (type png)
+<use figures/annexB/s9012__7836.png>
+Package pdftex.def Info: figures/annexB/s9012__7836.png  used on input line 6.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s9012__9338.png, id=144, 770.88pt x 770.88pt>
+File: figures/annexB/s9012__9338.png Graphic file (type png)
+<use figures/annexB/s9012__9338.png>
+Package pdftex.def Info: figures/annexB/s9012__9338.png  used on input line 6.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s7890__1159_25.png, id=145, 770.88pt x 770.88pt>
+File: figures/annexB/s7890__1159_25.png Graphic file (type png)
+<use figures/annexB/s7890__1159_25.png>
+Package pdftex.def Info: figures/annexB/s7890__1159_25.png  used on input line 
+7.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s7890__1159_29.png, id=146, 770.88pt x 770.88pt>
+File: figures/annexB/s7890__1159_29.png Graphic file (type png)
+<use figures/annexB/s7890__1159_29.png>
+Package pdftex.def Info: figures/annexB/s7890__1159_29.png  used on input line 
+7.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s7890__1159_3.png, id=147, 770.88pt x 770.88pt>
+File: figures/annexB/s7890__1159_3.png Graphic file (type png)
+<use figures/annexB/s7890__1159_3.png>
+Package pdftex.def Info: figures/annexB/s7890__1159_3.png  used on input line 7
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s7890__1159_7.png, id=148, 770.88pt x 770.88pt>
+File: figures/annexB/s7890__1159_7.png Graphic file (type png)
+<use figures/annexB/s7890__1159_7.png>
+Package pdftex.def Info: figures/annexB/s7890__1159_7.png  used on input line 7
+.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s7890__7836.png, id=149, 770.88pt x 770.88pt>
+File: figures/annexB/s7890__7836.png Graphic file (type png)
+<use figures/annexB/s7890__7836.png>
+Package pdftex.def Info: figures/annexB/s7890__7836.png  used on input line 7.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+<figures/annexB/s7890__9338.png, id=150, 770.88pt x 770.88pt>
+File: figures/annexB/s7890__9338.png Graphic file (type png)
+<use figures/annexB/s7890__9338.png>
+Package pdftex.def Info: figures/annexB/s7890__9338.png  used on input line 7.
+(pdftex.def)             Requested size: 52.0664pt x 52.06155pt.
+) (./_annexB_table.tex
+Overfull \hbox (9.94395pt too wide) in paragraph at lines 31--31
+[]|[]| 
+ []
+
+) [18
+
+ <./figures/annexB/target__1159_25.png (PNG copy)> <./figures/annexB/target__11
+59_29.png (PNG copy)> <./figures/annexB/target__1159_3.png (PNG copy)> <./figur
+es/annexB/target__1159_7.png (PNG copy)> <./figures/annexB/target__7836.png (PN
+G copy)> <./figures/annexB/target__9338.png (PNG copy)> <./figures/annexB/s1234
+__1159_25.png (PNG copy)> <./figures/annexB/s1234__1159_29.png (PNG copy)> <./f
+igures/annexB/s1234__1159_3.png (PNG copy)> <./figures/annexB/s1234__1159_7.png
+ (PNG copy)> <./figures/annexB/s1234__7836.png (PNG copy)> <./figures/annexB/s1
+234__9338.png (PNG copy)> <./figures/annexB/s3456__1159_25.png (PNG copy)> <./f
+igures/annexB/s3456__1159_29.png (PNG copy)> <./figures/annexB/s3456__1159_3.pn
+g (PNG copy)> <./figures/annexB/s3456__1159_7.png (PNG copy)> <./figures/annexB
+/s3456__7836.png (PNG copy)> <./figures/annexB/s3456__9338.png (PNG copy)> <./f
+igures/annexB/s5678__1159_25.png (PNG copy)> <./figures/annexB/s5678__1159_29.p
+ng (PNG copy)> <./figures/annexB/s5678__1159_3.png (PNG copy)> <./figures/annex
+B/s5678__1159_7.png (PNG copy)> <./figures/annexB/s5678__7836.png (PNG copy)> <
+./figures/annexB/s5678__9338.png (PNG copy)> <./figures/annexB/s9012__1159_25.p
+ng (PNG copy)> <./figures/annexB/s9012__1159_29.png (PNG copy)> <./figures/anne
+xB/s9012__1159_3.png (PNG copy)> <./figures/annexB/s9012__1159_7.png (PNG copy)
+> <./figures/annexB/s9012__7836.png (PNG copy)> <./figures/annexB/s9012__9338.p
+ng (PNG copy)> <./figures/annexB/s7890__1159_25.png (PNG copy)> <./figures/anne
+xB/s7890__1159_29.png (PNG copy)> <./figures/annexB/s7890__1159_3.png (PNG copy
+)> <./figures/annexB/s7890__1159_7.png (PNG copy)> <./figures/annexB/s7890__783
+6.png (PNG copy)> <./figures/annexB/s7890__9338.png (PNG copy)>] [19]
+(./main.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -1106,10 +1346,10 @@ LaTeX Warning: There were undefined references.
 
  ) 
 Here is how much of TeX's memory you used:
- 6592 strings out of 476106
- 108896 string characters out of 5793933
- 1949975 words of memory out of 5000000
- 28523 multiletter control sequences out of 15000+600000
+ 6859 strings out of 476106
+ 118933 string characters out of 5793933
+ 1952975 words of memory out of 5000000
+ 28784 multiletter control sequences out of 15000+600000
  576680 words of font info for 79 fonts, out of 8000000 for 9000
  59 hyphenation exceptions out of 8191
  67i,15n,77p,1621b,367s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1132,10 +1372,10 @@ public/cm-super/sfrm0700.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm
 /texmf/fonts/type1/public/cm-super/sfti0900.pfb></usr/share/texmf/fonts/type1/p
 ublic/cm-super/sfti1000.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt0
 900.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1000.pfb>
-Output written on main.pdf (17 pages, 27400421 bytes).
+Output written on main.pdf (19 pages, 59737387 bytes).
 PDF statistics:
- 215 PDF objects out of 1000 (max. 8388607)
- 113 compressed objects within 2 object streams
+ 258 PDF objects out of 1000 (max. 8388607)
+ 118 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
- 161 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 341 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -1,0 +1,748 @@
+{
+  "1159_25.png": {
+    "medium": {
+      "top1": "a 3D render",
+      "above_threshold": [
+        "a 3D render",
+        "an ambient occlusion render",
+        "a computer rendering",
+        "a digital rendering",
+        "a raytraced image",
+        "a stock photo"
+      ],
+      "scores": {
+        "a 3D render": 0.2423,
+        "an ambient occlusion render": 0.2182,
+        "a computer rendering": 0.2127,
+        "a digital rendering": 0.212,
+        "a raytraced image": 0.206,
+        "a stock photo": 0.2024
+      }
+    },
+    "artist_style": {
+      "top1": "Gentile Bellini",
+      "above_threshold": [
+        "Gentile Bellini",
+        "Tang Di",
+        "Sun Kehong",
+        "Byeon Sang-byeok",
+        "Odhise Paskali",
+        "photorealism",
+        "HAP Grieshaber",
+        "Perle Fine",
+        "Wu Zuoren",
+        "Tang Yifen"
+      ],
+      "scores": {
+        "Gentile Bellini": 0.2166,
+        "Tang Di": 0.2109,
+        "Sun Kehong": 0.2012,
+        "Byeon Sang-byeok": 0.1971,
+        "Odhise Paskali": 0.1951,
+        "photorealism": 0.1949,
+        "HAP Grieshaber": 0.1935,
+        "Perle Fine": 0.1926,
+        "Wu Zuoren": 0.1921,
+        "Tang Yifen": 0.1916
+      }
+    },
+    "flavor": {
+      "top1": "smooth 3d cg render",
+      "above_threshold": [
+        "smooth 3d cg render",
+        "rendered in v-ray",
+        "blender rendering",
+        "3ds max rendered",
+        "rendered in 3 dsmax",
+        "crisp detailed 3 d render",
+        "vray smooth",
+        "photorealistic 3 d render",
+        "photorealistic 3d render",
+        "cg render"
+      ],
+      "scores": {
+        "smooth 3d cg render": 0.2667,
+        "rendered in v-ray": 0.256,
+        "blender rendering": 0.2559,
+        "3ds max rendered": 0.2535,
+        "rendered in 3 dsmax": 0.2498,
+        "crisp detailed 3 d render": 0.2486,
+        "vray smooth": 0.2478,
+        "photorealistic 3 d render": 0.2478,
+        "photorealistic 3d render": 0.2478,
+        "cg render": 0.2476
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "above_threshold": [
+        "volumetric lighting",
+        "ambient occlusion lighting",
+        "studio lighting",
+        "harsh directional lighting",
+        "soft natural lighting",
+        "bright even lighting",
+        "candlelight"
+      ],
+      "scores": {
+        "volumetric lighting": 0.1984,
+        "ambient occlusion lighting": 0.1949,
+        "studio lighting": 0.1674,
+        "harsh directional lighting": 0.1649,
+        "soft natural lighting": 0.1611,
+        "bright even lighting": 0.1605,
+        "candlelight": 0.1604
+      }
+    },
+    "camera_angle": {
+      "top1": "medium shot",
+      "above_threshold": [
+        "medium shot",
+        "macro photography shot",
+        "close-up portrait shot"
+      ],
+      "scores": {
+        "medium shot": 0.1914,
+        "macro photography shot": 0.1674,
+        "close-up portrait shot": 0.1592
+      }
+    }
+  },
+  "1159_29.png": {
+    "medium": {
+      "top1": "a matte painting",
+      "above_threshold": [
+        "a matte painting",
+        "a photorealistic painting",
+        "a detailed matte painting",
+        "a digital rendering",
+        "a 3D render",
+        "a hyperrealistic painting",
+        "a surrealist painting",
+        "an airbrush painting",
+        "a digital painting",
+        "a stock photo"
+      ],
+      "scores": {
+        "a matte painting": 0.2114,
+        "a photorealistic painting": 0.2065,
+        "a detailed matte painting": 0.2013,
+        "a digital rendering": 0.2008,
+        "a 3D render": 0.196,
+        "a hyperrealistic painting": 0.1949,
+        "a surrealist painting": 0.1936,
+        "an airbrush painting": 0.193,
+        "a digital painting": 0.192,
+        "a stock photo": 0.1888
+      }
+    },
+    "artist_style": {
+      "top1": "Chris LaBrooy",
+      "above_threshold": [
+        "Chris LaBrooy",
+        "Michal Karcz",
+        "Filip Hodas",
+        "Vincent Lefevre",
+        "David Martin",
+        "art photography",
+        "Anthony S Waters",
+        "magic realism",
+        "Itshak Holtz",
+        "Susy Pilgrim Waters"
+      ],
+      "scores": {
+        "Chris LaBrooy": 0.2272,
+        "Michal Karcz": 0.2188,
+        "Filip Hodas": 0.2162,
+        "Vincent Lefevre": 0.2112,
+        "David Martin": 0.2066,
+        "art photography": 0.2065,
+        "Anthony S Waters": 0.2064,
+        "magic realism": 0.2059,
+        "Itshak Holtz": 0.2046,
+        "Susy Pilgrim Waters": 0.2045
+      }
+    },
+    "flavor": {
+      "top1": "the tree is on top of a calm sea",
+      "above_threshold": [
+        "the tree is on top of a calm sea",
+        "a palm tree",
+        "beach surreal photography",
+        "palm tree",
+        "palm trees on the beach",
+        "tropical ocean",
+        "tropical island",
+        "tropical beach",
+        "island background",
+        "lonely tree"
+      ],
+      "scores": {
+        "the tree is on top of a calm sea": 0.2774,
+        "a palm tree": 0.2612,
+        "beach surreal photography": 0.2548,
+        "palm tree": 0.2524,
+        "palm trees on the beach": 0.2511,
+        "tropical ocean": 0.2508,
+        "tropical island": 0.2505,
+        "tropical beach": 0.2485,
+        "island background": 0.2484,
+        "lonely tree": 0.2481
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "above_threshold": [
+        "volumetric lighting",
+        "dark dramatic shadows",
+        "rim lighting",
+        "backlit",
+        "golden hour lighting",
+        "iridescent lighting",
+        "harsh directional lighting",
+        "bright even lighting",
+        "ambient occlusion lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.19,
+        "dark dramatic shadows": 0.1775,
+        "rim lighting": 0.1686,
+        "backlit": 0.168,
+        "golden hour lighting": 0.1652,
+        "iridescent lighting": 0.162,
+        "harsh directional lighting": 0.1581,
+        "bright even lighting": 0.1577,
+        "ambient occlusion lighting": 0.1528
+      }
+    },
+    "camera_angle": {
+      "top1": "macro photography shot",
+      "above_threshold": [
+        "macro photography shot",
+        "establishing wide shot",
+        "eye level shot",
+        "medium shot",
+        "low angle shot",
+        "wide angle shot",
+        "bird's eye view",
+        "dutch angle shot",
+        "extreme close-up shot",
+        "overhead shot"
+      ],
+      "scores": {
+        "macro photography shot": 0.1649,
+        "establishing wide shot": 0.1539,
+        "eye level shot": 0.1534,
+        "medium shot": 0.1531,
+        "low angle shot": 0.1528,
+        "wide angle shot": 0.1526,
+        "bird's eye view": 0.1491,
+        "dutch angle shot": 0.1429,
+        "extreme close-up shot": 0.1391,
+        "overhead shot": 0.1297
+      }
+    }
+  },
+  "1159_3.png": {
+    "medium": {
+      "top1": "a character portrait",
+      "above_threshold": [
+        "a character portrait",
+        "concept art",
+        "a digital painting",
+        "an airbrush painting",
+        "an ultrafine detailed painting",
+        "a detailed painting",
+        "a painting",
+        "an anime drawing",
+        "digital art",
+        "a manga drawing"
+      ],
+      "scores": {
+        "a character portrait": 0.2319,
+        "concept art": 0.2224,
+        "a digital painting": 0.2168,
+        "an airbrush painting": 0.2136,
+        "an ultrafine detailed painting": 0.2073,
+        "a detailed painting": 0.2064,
+        "a painting": 0.2029,
+        "an anime drawing": 0.2017,
+        "digital art": 0.1972,
+        "a manga drawing": 0.1938
+      }
+    },
+    "artist_style": {
+      "top1": "Andor Basch",
+      "above_threshold": [
+        "Andor Basch",
+        "Clint Cearley",
+        "Yumihiko Amano",
+        "Shinji Aramaki",
+        "Cedric Seaut (Keos Masons)",
+        "Ross Tran",
+        "Takahashi Yuichi",
+        "Yoshitaka Amano",
+        "Joong Keun Lee",
+        "Jeremy Chong"
+      ],
+      "scores": {
+        "Andor Basch": 0.2458,
+        "Clint Cearley": 0.2348,
+        "Yumihiko Amano": 0.2345,
+        "Shinji Aramaki": 0.2328,
+        "Cedric Seaut (Keos Masons)": 0.23,
+        "Ross Tran": 0.2295,
+        "Takahashi Yuichi": 0.2287,
+        "Yoshitaka Amano": 0.2275,
+        "Joong Keun Lee": 0.227,
+        "Jeremy Chong": 0.2269
+      }
+    },
+    "flavor": {
+      "top1": "ezreal (league of legends",
+      "above_threshold": [
+        "ezreal (league of legends",
+        "lightning arc plasma",
+        "rossdraws volumetric lighting",
+        "rossdraws global illumination",
+        "cushart kenz",
+        "trending on artstation pixiv",
+        "amazing lightning art",
+        "tuomas korpi and wlop",
+        "symmetrical portrait rpg avatar",
+        "rossdraws digital painting"
+      ],
+      "scores": {
+        "ezreal (league of legends": 0.2851,
+        "lightning arc plasma": 0.2844,
+        "rossdraws volumetric lighting": 0.2837,
+        "rossdraws global illumination": 0.2711,
+        "cushart kenz": 0.2665,
+        "trending on artstation pixiv": 0.2662,
+        "amazing lightning art": 0.2657,
+        "tuomas korpi and wlop": 0.2611,
+        "symmetrical portrait rpg avatar": 0.2606,
+        "rossdraws digital painting": 0.2596
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "above_threshold": [
+        "volumetric lighting",
+        "ambient occlusion lighting",
+        "bright even lighting",
+        "moody atmospheric lighting",
+        "harsh directional lighting",
+        "iridescent lighting",
+        "backlit",
+        "rim lighting",
+        "dark dramatic shadows",
+        "dramatic cinematic lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.2024,
+        "ambient occlusion lighting": 0.196,
+        "bright even lighting": 0.1939,
+        "moody atmospheric lighting": 0.1844,
+        "harsh directional lighting": 0.1839,
+        "iridescent lighting": 0.1811,
+        "backlit": 0.1792,
+        "rim lighting": 0.1759,
+        "dark dramatic shadows": 0.1753,
+        "dramatic cinematic lighting": 0.1743
+      }
+    },
+    "camera_angle": {
+      "top1": "medium shot",
+      "above_threshold": [
+        "medium shot",
+        "full body shot",
+        "bird's eye view",
+        "overhead shot",
+        "low angle shot",
+        "eye level shot",
+        "establishing wide shot",
+        "extreme close-up shot",
+        "close-up portrait shot"
+      ],
+      "scores": {
+        "medium shot": 0.1666,
+        "full body shot": 0.158,
+        "bird's eye view": 0.1524,
+        "overhead shot": 0.1377,
+        "low angle shot": 0.1366,
+        "eye level shot": 0.1338,
+        "establishing wide shot": 0.1332,
+        "extreme close-up shot": 0.1309,
+        "close-up portrait shot": 0.1273
+      }
+    }
+  },
+  "1159_7.png": {
+    "medium": {
+      "top1": "a 3D render",
+      "above_threshold": [
+        "a 3D render",
+        "a computer rendering",
+        "a surrealist sculpture",
+        "an abstract sculpture",
+        "computer graphics",
+        "a hyperrealistic painting",
+        "a photorealistic painting",
+        "a raytraced image"
+      ],
+      "scores": {
+        "a 3D render": 0.2376,
+        "a computer rendering": 0.2258,
+        "a surrealist sculpture": 0.2188,
+        "an abstract sculpture": 0.2131,
+        "computer graphics": 0.211,
+        "a hyperrealistic painting": 0.2042,
+        "a photorealistic painting": 0.2038,
+        "a raytraced image": 0.2007
+      }
+    },
+    "artist_style": {
+      "top1": "Adam Szentpétery",
+      "above_threshold": [
+        "Adam Szentpétery",
+        "Chris LaBrooy",
+        "Filip Hodas",
+        "Max Magnus Norman",
+        "Jay Hambidge",
+        "Clovis Trouille",
+        "shock art",
+        "Rick Griffin",
+        "Stephen Gilbert",
+        "computer art"
+      ],
+      "scores": {
+        "Adam Szentpétery": 0.2484,
+        "Chris LaBrooy": 0.2223,
+        "Filip Hodas": 0.215,
+        "Max Magnus Norman": 0.2145,
+        "Jay Hambidge": 0.2131,
+        "Clovis Trouille": 0.2127,
+        "shock art": 0.2126,
+        "Rick Griffin": 0.2115,
+        "Stephen Gilbert": 0.2107,
+        "computer art": 0.2102
+      }
+    },
+    "flavor": {
+      "top1": "3 d head of green hedgehog",
+      "above_threshold": [
+        "3 d head of green hedgehog",
+        "sonic hedgehog",
+        "sonic the hedgehog in a surreal",
+        "checkered spiked hair",
+        "hedgehog magus",
+        "hyper realistic 3 d render",
+        "melting 4d cubes",
+        "translucent cube",
+        "sonic the hedgehog",
+        "hypperrealistic 3 d sculpture"
+      ],
+      "scores": {
+        "3 d head of green hedgehog": 0.2835,
+        "sonic hedgehog": 0.259,
+        "sonic the hedgehog in a surreal": 0.2587,
+        "checkered spiked hair": 0.2586,
+        "hedgehog magus": 0.2576,
+        "hyper realistic 3 d render": 0.2574,
+        "melting 4d cubes": 0.2571,
+        "translucent cube": 0.257,
+        "sonic the hedgehog": 0.2566,
+        "hypperrealistic 3 d sculpture": 0.2558
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "above_threshold": [
+        "volumetric lighting",
+        "ambient occlusion lighting",
+        "harsh directional lighting",
+        "studio lighting",
+        "soft natural lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.1817,
+        "ambient occlusion lighting": 0.168,
+        "harsh directional lighting": 0.1675,
+        "studio lighting": 0.1621,
+        "soft natural lighting": 0.1554
+      }
+    },
+    "camera_angle": {
+      "top1": "extreme close-up shot",
+      "above_threshold": [
+        "extreme close-up shot",
+        "bird's eye view",
+        "macro photography shot",
+        "overhead shot",
+        "low angle shot",
+        "medium shot",
+        "close-up portrait shot",
+        "eye level shot"
+      ],
+      "scores": {
+        "extreme close-up shot": 0.1738,
+        "bird's eye view": 0.1712,
+        "macro photography shot": 0.1638,
+        "overhead shot": 0.1527,
+        "low angle shot": 0.1512,
+        "medium shot": 0.1508,
+        "close-up portrait shot": 0.1452,
+        "eye level shot": 0.1371
+      }
+    }
+  },
+  "7836.png": {
+    "medium": {
+      "top1": "an ultrafine detailed painting",
+      "above_threshold": [
+        "an ultrafine detailed painting",
+        "a matte painting",
+        "a detailed matte painting",
+        "concept art",
+        "a painting",
+        "a detailed painting",
+        "a digital painting",
+        "an oil painting",
+        "digital art",
+        "a fine art painting"
+      ],
+      "scores": {
+        "an ultrafine detailed painting": 0.2255,
+        "a matte painting": 0.2209,
+        "a detailed matte painting": 0.2206,
+        "concept art": 0.2203,
+        "a painting": 0.2173,
+        "a detailed painting": 0.2137,
+        "a digital painting": 0.2132,
+        "an oil painting": 0.2062,
+        "digital art": 0.2048,
+        "a fine art painting": 0.2009
+      }
+    },
+    "artist_style": {
+      "top1": "space art",
+      "above_threshold": [
+        "space art",
+        "jessica rossier",
+        "James Paick",
+        "Neil Blevins",
+        "Jonas De Ro"
+      ],
+      "scores": {
+        "space art": 0.268,
+        "jessica rossier": 0.255,
+        "James Paick": 0.2543,
+        "Neil Blevins": 0.2438,
+        "Jonas De Ro": 0.2362
+      }
+    },
+    "flavor": {
+      "top1": "space backround",
+      "above_threshold": [
+        "space backround",
+        "space art concept",
+        "jessica rossier color scheme",
+        "space landscape",
+        "space background",
+        "space scene",
+        "deep space background",
+        "on a galaxy looking background",
+        "space graphics art in background",
+        "background is space"
+      ],
+      "scores": {
+        "space backround": 0.2757,
+        "space art concept": 0.2657,
+        "jessica rossier color scheme": 0.2647,
+        "space landscape": 0.2646,
+        "space background": 0.2613,
+        "space scene": 0.2608,
+        "deep space background": 0.2605,
+        "on a galaxy looking background": 0.2595,
+        "space graphics art in background": 0.2594,
+        "background is space": 0.2585
+      }
+    },
+    "lighting": {
+      "top1": "volumetric lighting",
+      "above_threshold": [
+        "volumetric lighting",
+        "iridescent lighting",
+        "dark dramatic shadows",
+        "dramatic cinematic lighting",
+        "moody atmospheric lighting",
+        "harsh directional lighting",
+        "ambient occlusion lighting",
+        "backlit",
+        "bright even lighting",
+        "rim lighting"
+      ],
+      "scores": {
+        "volumetric lighting": 0.197,
+        "iridescent lighting": 0.1846,
+        "dark dramatic shadows": 0.1823,
+        "dramatic cinematic lighting": 0.1776,
+        "moody atmospheric lighting": 0.174,
+        "harsh directional lighting": 0.1729,
+        "ambient occlusion lighting": 0.1702,
+        "backlit": 0.1644,
+        "bright even lighting": 0.1635,
+        "rim lighting": 0.1582
+      }
+    },
+    "camera_angle": {
+      "top1": "eye level shot",
+      "above_threshold": [
+        "eye level shot",
+        "establishing wide shot",
+        "low angle shot",
+        "medium shot",
+        "wide angle shot",
+        "bird's eye view",
+        "extreme close-up shot",
+        "dutch angle shot",
+        "full body shot",
+        "overhead shot"
+      ],
+      "scores": {
+        "eye level shot": 0.1689,
+        "establishing wide shot": 0.1595,
+        "low angle shot": 0.1583,
+        "medium shot": 0.1552,
+        "wide angle shot": 0.1548,
+        "bird's eye view": 0.1487,
+        "extreme close-up shot": 0.1464,
+        "dutch angle shot": 0.1433,
+        "full body shot": 0.1361,
+        "overhead shot": 0.1291
+      }
+    }
+  },
+  "9338.png": {
+    "medium": {
+      "top1": "a digital painting",
+      "above_threshold": [
+        "a digital painting",
+        "a detailed painting",
+        "digital art",
+        "a painting",
+        "an ultrafine detailed painting",
+        "a fine art painting",
+        "an oil painting",
+        "a character portrait",
+        "an airbrush painting",
+        "an abstract painting"
+      ],
+      "scores": {
+        "a digital painting": 0.2252,
+        "a detailed painting": 0.2088,
+        "digital art": 0.2068,
+        "a painting": 0.2068,
+        "an ultrafine detailed painting": 0.2064,
+        "a fine art painting": 0.2016,
+        "an oil painting": 0.2014,
+        "a character portrait": 0.201,
+        "an airbrush painting": 0.1965,
+        "an abstract painting": 0.1885
+      }
+    },
+    "artist_style": {
+      "top1": "Lisa Frank",
+      "above_threshold": [
+        "Lisa Frank",
+        "Chris LaBrooy",
+        "fantasy art",
+        "Murakami",
+        "Kubisi art",
+        "Adam Rex",
+        "altermodern",
+        "Zoltan Boros",
+        "Fan Qi",
+        "furry art"
+      ],
+      "scores": {
+        "Lisa Frank": 0.237,
+        "Chris LaBrooy": 0.2277,
+        "fantasy art": 0.2239,
+        "Murakami": 0.2222,
+        "Kubisi art": 0.218,
+        "Adam Rex": 0.2177,
+        "altermodern": 0.2175,
+        "Zoltan Boros": 0.2153,
+        "Fan Qi": 0.2152,
+        "furry art": 0.2113
+      }
+    },
+    "flavor": {
+      "top1": "whimsical demon with rainbow fur",
+      "above_threshold": [
+        "whimsical demon with rainbow fur",
+        "julie dillon",
+        "colorful aura",
+        "rainbow fur",
+        "kodachromatic",
+        "fantasy creature",
+        "chinchilla animal",
+        "colorful iridescent and playful",
+        "magical aura",
+        "award winning creature portrait"
+      ],
+      "scores": {
+        "whimsical demon with rainbow fur": 0.2799,
+        "julie dillon": 0.275,
+        "colorful aura": 0.2654,
+        "rainbow fur": 0.2587,
+        "kodachromatic": 0.2567,
+        "fantasy creature": 0.2566,
+        "chinchilla animal": 0.2564,
+        "colorful iridescent and playful": 0.256,
+        "magical aura": 0.2558,
+        "award winning creature portrait": 0.2548
+      }
+    },
+    "lighting": {
+      "top1": "iridescent lighting",
+      "above_threshold": [
+        "iridescent lighting",
+        "soft natural lighting"
+      ],
+      "scores": {
+        "iridescent lighting": 0.2099,
+        "soft natural lighting": 0.1783
+      }
+    },
+    "camera_angle": {
+      "top1": "full body shot",
+      "above_threshold": [
+        "full body shot",
+        "medium shot",
+        "extreme close-up shot",
+        "low angle shot",
+        "close-up portrait shot",
+        "macro photography shot",
+        "establishing wide shot",
+        "dutch angle shot",
+        "bird's eye view",
+        "eye level shot"
+      ],
+      "scores": {
+        "full body shot": 0.15,
+        "medium shot": 0.1425,
+        "extreme close-up shot": 0.1361,
+        "low angle shot": 0.131,
+        "close-up portrait shot": 0.1308,
+        "macro photography shot": 0.1284,
+        "establishing wide shot": 0.1268,
+        "dutch angle shot": 0.1259,
+        "bird's eye view": 0.1245,
+        "eye level shot": 0.116
+      }
+    }
+  }
+}
