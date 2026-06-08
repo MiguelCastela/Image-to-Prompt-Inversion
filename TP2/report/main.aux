@@ -31,32 +31,32 @@
 \@writefile{toc}{\contentsline {section}{\numberline {5}Analysis of the Results}{9}{}\protected@file@percent }
 \newlabel{sec:results}{{5}{9}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Aggregate metrics across the test set}{9}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Aggregate image-side metrics over the four-seed pool (mean$\pm $std). CLIP higher is better; LPIPS and pixel MSE lower is better.}}{9}{}\protected@file@percent }
-\newlabel{tab:aggregate}{{2}{9}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Aggregate image-side metrics over the four-seed pool (mean$\pm $std). CLIP higher is better; LPIPS, pixel MSE and the composite all lower is better. The composite is the within-target rank-average ($1$ = best) and so scales with the per-target pool size ($\approx 230$ candidates); the warm start (Stage~1 initial prompt, before refinement) is shown separately for reference.}}{10}{}\protected@file@percent }
+\newlabel{tab:aggregate}{{2}{10}{}{}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Best candidate per branch}{10}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Best candidate per branch, evaluated on the branch's own objective and averaged over six targets $\times $ four seeds ($n{=}24$). Bold marks the metric each branch optimises. The composite branch is selected by the rank-average and shown for comparison.}}{10}{}\protected@file@percent }
-\newlabel{tab:perbranch}{{3}{10}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Best reconstruction per metric}{10}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Best reconstruction per (target, objective) over the four-seed pool. Columns are the six targets; rows are the target image and the CLIP-, LPIPS-, MSE- and composite-optimal renders. All renders use the fixed LCM configuration with the seed from the filename.}}{11}{}\protected@file@percent }
-\newlabel{fig:grid}{{2}{11}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Do the metrics agree? Rank correlations}{11}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Spearman rank correlation between metrics over the pooled candidate set ($n{=}5{,}551$).}}{11}{}\protected@file@percent }
-\newlabel{tab:spearman}{{4}{11}{}{}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Each point is one of the 5{,}551 pooled candidates. CLIP is nearly orthogonal to the low-level metrics (left, mildly negative), whereas LPIPS and pixel MSE are strongly positively related (right).}}{12}{}\protected@file@percent }
-\newlabel{fig:corr}{{3}{12}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Stability across seeds}{12}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Best-per-image metric means within each optimiser seed (error bars are std over the six targets). The four seeds are mutually consistent.}}{12}{}\protected@file@percent }
-\newlabel{fig:seedstab}{{4}{12}{}{}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Qualitative analysis: successes, failures, ambiguous cases}{13}{}\protected@file@percent }
-\newlabel{sec:limits}{{5.6}{13}{}{}{}}
-\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Clear success, orange juice (1159\_25).}}{13}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {High CLIP, high LPIPS, palm tree (1159\_29).}}{13}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Hardest semantic target, hedgehog (1159\_7).}}{13}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Lowest absolute error, astronaut (7836).}}{13}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Diversity recovered by multi-seed pooling.}}{13}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{13}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{Annex A: Full submitted top-3 prompts}{15}{}\protected@file@percent }
-\newlabel{annex:top3}{{6}{15}{}{}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Full submitted top-3 prompts per target, with image-side metrics. ``Selected by'' is the objective the render is best under.}}{16}{}\protected@file@percent }
-\newlabel{tab:annex-top3}{{5}{16}{}{}{}}
-\gdef \@abspage@last{16}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Best candidate per branch, evaluated on the branch's own objective and averaged over six targets $\times $ four seeds ($n{=}24$). Bold marks the metric each branch optimises. The composite branch is selected by the rank-average and shown for comparison.}}{11}{}\protected@file@percent }
+\newlabel{tab:perbranch}{{3}{11}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Best reconstruction per metric}{11}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Best reconstruction per (target, objective) over the four-seed pool. Columns are the six targets; rows are the target image and the CLIP-, LPIPS-, MSE- and composite-optimal renders. All renders use the fixed LCM configuration with the seed from the filename.}}{12}{}\protected@file@percent }
+\newlabel{fig:grid}{{2}{12}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Do the metrics agree? Rank correlations}{12}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Spearman rank correlation between metrics over the pooled candidate set ($n{=}5{,}551$).}}{12}{}\protected@file@percent }
+\newlabel{tab:spearman}{{4}{12}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Each point is one of the 5{,}551 pooled candidates. CLIP is nearly orthogonal to the low-level metrics (left, mildly negative), whereas LPIPS and pixel MSE are strongly positively related (right).}}{13}{}\protected@file@percent }
+\newlabel{fig:corr}{{3}{13}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Stability across seeds}{13}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Best-per-image metric means within each optimiser seed (error bars are std over the six targets). The four seeds are mutually consistent.}}{14}{}\protected@file@percent }
+\newlabel{fig:seedstab}{{4}{14}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Qualitative analysis: successes, failures, ambiguous cases}{14}{}\protected@file@percent }
+\newlabel{sec:limits}{{5.6}{14}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Clear success, orange juice (1159\_25).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {High CLIP, high LPIPS, palm tree (1159\_29).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Hardest semantic target, hedgehog (1159\_7).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Lowest absolute error, astronaut (7836).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Diversity recovered by multi-seed pooling.}}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{Annex A: Full submitted top-3 prompts}{16}{}\protected@file@percent }
+\newlabel{annex:top3}{{6}{16}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Full submitted top-3 prompts per target, with image-side metrics. ``Selected by'' is the objective the render is best under.}}{17}{}\protected@file@percent }
+\newlabel{tab:annex-top3}{{5}{17}{}{}{}}
+\gdef \@abspage@last{17}
