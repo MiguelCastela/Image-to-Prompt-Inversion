@@ -1,0 +1,753 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads]{llncs}
+\usepackage{multirow}
+\setcounter{tocdepth}{4}
+\usepackage[left=2.7cm, right=2.7cm, top=1.7cm, bottom=1.5cm]{geometry}%
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage[T1]{fontenc}
+% T1 fonts will be used to generate the final print and online PDFs,
+% so please use T1 fonts in your manuscript whenever possible.
+% Other font encodings may result in incorrect characters.
+%
+\usepackage{graphicx}
+% Used for displaying a sample figure. If possible, figure files should
+% be included in EPS format.
+%
+% If you use the hyperref package, please uncomment the following two lines
+% to display URLs in blue roman font according to Springer's eBook style:
+%\usepackage{color}
+%\renewcommand\UrlFont{\color{blue}\rmfamily}
+%\urlstyle{rm}
+%
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{float}
+\usepackage{textgreek}
+\setlength{\textfloatsep}{10pt plus 1pt minus 2pt}
+\setlength{\intextsep}{10pt plus 1pt minus 2pt}
+
+\begin{document}
+%
+\title{Art-Bench Generative Modeling}
+%
+%\titlerunning{Abbreviated paper title}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\author{Miguel Castela\inst{1} \and
+Miguel Martins\inst{2}} 
+%
+\authorrunning{M. Castela and M. Martins}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{University of Coimbra, Portugal \\
+\email{uc2022212972@student.uc.pt}\\
+\email{uc2022213951@student.uc.pt}
+}
+%
+\maketitle              % typeset the header of the contribution
+%
+\section{Introduction}
+This project presents the implementation and evaluation of different generative models, belonging to three different families, used to generate images from the \textbf{ArtBench} dataset.
+The main objective of this project is to compare the performance of these different models at generating new images. The first approach consists of \textbf{Autoencoders}, specifically focusing on two VAE-type models. The second explores \textbf{Generative Adversarial Networks} (GANs), utilizing two DCGAN-based architectures. The third approach investigates four different types of \textbf{Diffusion} models.
+By evaluating these distinct methodologies through a full generative pipeline, this project aims to analyze their trade-offs in stability, sample quality, and computational cost. To achieve this, the models are assessed both qualitatively, through visual sample inspection, and quantitatively, using distribution-level metrics such as the \textbf{Fréchet Inception Distance} (FID) and \textbf{Kernel Inception Distance} (KID). After initial development and comparison on  20\% of the dataset, the best-performing approaches from each group will be selected, retrained, and evaluated on the full dataset to solidify the comparative findings.
+
+\section{Description of the problem}
+The \texttt{ArtBench} dataset consists of 60,000 \textbf{$32 \times 32$} images equally distributed in 10 classes, based on their artistic style. The training split has 50,000 images, of which a selected 20\% was used in the earlier stages of the work in order to make exploration viable. This presents a challenging setting because the generative models must successfully balance visual fidelity, structural diversity, and style consistency across the generated artworks.
+
+
+
+
+\section{Methodology and Approach}
+\subsection{Variational Autoencoders}
+Two variational autoencoder architectures were evaluated: a Standard VAE and a Conditional VAE (cVAE).
+\subsubsection{Standard VAE}
+
+\paragraph{\normalfont\textbf{Encoder \& Latent Bottleneck:}}
+The encoder downsamples the $32 \times 32$ image through three convolutional blocks (all utilizing $3 \times 3$ kernels and padding 1; strides: 2, 2, 1), resulting in progressive spatial resolutions of $32 \rightarrow 16 \rightarrow 8 \rightarrow 8$ and channel depths of $3 \rightarrow 32 \rightarrow 64 \rightarrow 128$. To stabilize training, \texttt{BatchNorm2d} is applied before each ReLU activation, ensuring the extracted features remain consistently scaled before
+reaching the latent bottleneck and normalizing feature maps to prevent high-magnitude channels from mathematically dominating the latent projection.
+The final feature map is flattened and passed through parallel linear layers to predict the mean ($\mu$) and log-variance ($\log(\sigma^2)$) of the latent Gaussian distribution. The \textbf{reparameterization trick} is applied during training to isolate the sampling randomness (not differentiable), allowing for deterministic backpropagation.
+
+
+\paragraph{\normalfont\textbf{Decoder Network:}}
+A 64-dimensional latent vector $z$ was selected as the optimal bottleneck, providing sufficient capacity for complex artistic textures while enforcing enough compression to prevent dataset memorization. Whether sampled via the reparameterization trick during training or drawn from standard normal noise during generation, $z$ is linearly projected to 8,192 features and reshaped into a $128 \times 8 \times 8$ spatial tensor. It is iteratively upsampled via three \texttt{ConvTranspose2d} blocks back to $32 \times 32$ pixels (all utilizing $3 \times 3$ kernels and padding 1; strides: 1, 2, 2, with an output padding of 1 applied to the strided layers). This sequence progressively expands the spatial resolution ($8 \rightarrow 8 \rightarrow 16 \rightarrow 32$) while simultaneously collapsing the channel depth ($128 \rightarrow 64 \rightarrow 32 \rightarrow 3$).
+
+\noindent
+The final layer utilizes a \textbf{Sigmoid activation} to bound reconstructed pixels within $[0, 1]$, optimizing for a Binary Cross Entropy (BCE) reconstruction loss, forcing the network to learn more accurate structural details, by treating each pixel’s intensity as an independent Bernoulli probability.
+
+
+\paragraph{\normalfont\textbf{Loss Function and KL Annealing}}
+The model is optimized using $\beta$-VAE loss, balancing reconstruction accuracy (measured via Binary Cross Entropy) and latent space regularization (measured via Kullback-Leibler Divergence). In this context, the Kullback-Leibler (KL) Divergence acts as a mathematical penalty that measures how much the encoder's learned latent distribution deviates from a standard normal prior distribution. By minimizing this divergence, the network is forced to maintain a continuous and smooth latent space, which is a strict necessity for sampling valid, novel images during the generation phase.
+
+
+
+
+
+\noindent
+\\
+To prevent posterior collapse (a local minimum where the encoder trivially zeroes the KL penalty by ignoring the input), \textbf{KL Annealing} is employed. The weight of the KL divergence term is linearly scaled over the first 5 epochs. This temporarily removes the regularization, allowing the network to initially operate as a standard autoencoder and prioritize learning meaningful feature representations and establishing a strong reconstruction pathway first before smoothly molding the learned features into the required Gaussian distribution without shocking the network into a collapsed state.
+
+\subsubsection{Conditional VAE}
+\paragraph{\normalfont\textbf{Class Conditioning Architecture:}}
+To enable targeted artistic generation, discrete class labels are mapped to a 32-dimensional continuous embedding. This dimensionality explicitly balances the style signal against the 128-channel image features, preventing the condition from overwhelming structural data. 
+\begin{itemize}
+    \item \textbf{Encoder:} The 32-dimensional embedding is spatially expanded to $8 \times 8$ and concatenated with the channel dimension of the image features, yielding a 160-channel input to the bottleneck.
+    \item \textbf{Decoder:} The embedding is concatenated directly to the 64-dimensional latent vector $z$, creating a 96-dimensional input for the initial linear projection.
+\end{itemize}
+\noindent
+This dual-conditioning approach ensures the entire generation process is strictly guided by the requested artistic style, while allowing the core convolutional and deconvolutional structures to remain identical to the standard VAE
+
+
+
+
+\subsection{Generative Adversarial Networks}
+
+
+To combat the vanishing gradients and mode collapse inherent to standard GANs, a Deep Convolutional GAN (DCGAN) and a Conditional DCGAN were implemented using the Wasserstein GAN with Gradient Penalty (WGAN-GP) framework. By replacing JS divergence with the Earth Mover’s distance, the model provides continuous non-vanishing gradients even when real and generated distributions are disjoint. Consequently, the traditional "discriminator" becomes a "critic" outputting unbound, real-valued scores. Finally, to enforce the strict 1-Lipschitz continuity required by the Wasserstein metric, a Gradient Penalty is applied to the critic’s loss, interpolating between real and fake samples to constrain the gradient norm and ensure highly stable adversarial convergence without aggressive weight clipping.
+\subsubsection{DCGAN}
+
+
+\subsubsection{DCGAN Architecture \& Optimization}
+\paragraph{\normalfont\textbf{Generator:}}
+Maps a 100-dimensional noise vector ($z$) from the latent space into a $32 \times 32$ RGB image via 5 transposed convolution blocks (kernels: $4 \times 4$ except the final $3 \times 3$; strides: 1, 2, 2, 2, 1; padding: 0 for the initial block, 1 for the remainder). This sequence progressively upsamples the spatial resolution ($1 \times 1 \rightarrow 4 \times 4 \rightarrow 8 \rightarrow 16 \rightarrow 32$) while scaling the channel depths inversely from $100 \rightarrow 512 \rightarrow 256 \rightarrow 128 \rightarrow 64 \rightarrow 3$. Batch Normalization and ReLU are applied throughout, to ensure stable feature scaling, except the final layer, which utilizes a Tanh activation to bound outputs to $[-1, 1]$.
+
+
+
+
+\paragraph{\normalfont\textbf{Critic (Discriminator):}}
+
+Downsamples the $32 \times 32$ image via 4 convolutional layers (all utilizing $4 \times 4$ kernels; strides: 2, 2, 2, 1; padding: 1 for the first three, 0 for the final layer). This sequence progressively collapses the spatial resolution ($32 \times 32 \rightarrow 16 \times 16 \rightarrow 8 \times 8 \rightarrow 4 \times 4 \rightarrow 1 \times 1$) while expanding the channel depths ($3 \rightarrow 64 \rightarrow 128 \rightarrow 256 \rightarrow 1$) into a single, unbound scalar score. To enforce 1-Lipschitz continuity, Spectral Normalization is applied to every convolutional layer in the critic. Additionally, LeakyReLU activations are used throughout the network to prevent dead gradients. A  Gradient Penalty interpolates between real and fake samples to constrain the gradient norm. The final Sigmoid activation is deliberately omitted to allow for valid, real-valued Wasserstein distance calculations. Both networks utilize the Adam optimizer to prevent momentum-based adversarial instability.
+
+
+
+\subsubsection{cDCGAN (Conditional WGAN-GP)}
+To enable targeted generation, learnable class embeddings are injected into both networks:
+\begin{itemize}
+    \item \textbf{Generator:} The label is mapped to a 100-dimensional vector (matching the dimensionality of the latent noise vector z), reshaped to $1 \times 1$, and concatenated with $z$ (yielding 200 channels). The architecture is streamlined to 4 transposed convolutions to accommodate this depth,  progressively upsampling the combined 1 × 1 input directly into the final 32 × 32 image space.
+    \item \textbf{Critic:} The label is mapped to a 1024-dimensional embedding, reshaped into a $32 \times 32$ single-channel spatial map, and concatenated with the RGB image, modifying the first layer to accept 4 input channels.
+\end{itemize}
+\noindent
+By injecting the condition directly into the image space, the critic is forced to judge the authenticity
+of the generated image strictly within the context of the requested artistic style.
+
+
+
+\subsection{Diffusion Models}
+Two continuous-time Diffusion Models were implemented: an unconditional PixelUNet and a conditional variant utilizing Classifier-Free Guidance (CFG). Both architectures were benchmarked using two distinct sampling algorithms (DDPM and DDIM)
+
+\paragraph{\normalfont\textbf{Core U-Net Architecture:}}
+The network iteratively removes Gaussian noise ($\epsilon$) over $T=1000$ timesteps (Cosine schedule) via a U-Net structure. Standard Batch Normalization is replaced by \textbf{Group Normalization}, which calculates statistics independently of batch size, making it highly robust to fluctuating noise scales. Additionally, \textbf{SiLU activations} are utilized for their smooth, non-monotonic gradients (does not introduce "dead neurons" or jagged gradients).
+\begin{itemize}
+    \item \textbf{Encoder \& Decoder:} The image is downsampled twice to $8 \times 8$ via strided convolutions (doubling channel depth at each step), then iteratively upsampled back to $32 \times 32$ using transposed convolutions. Skip connections that concatenate high-resolution feature maps from the encoder directly into the decoder layer preserve high-frequency structural details across the bottleneck.
+    \item \textbf{Bottleneck:} Applies \textit{Residual Blocks} to bypass main convolutions, adding the input tensor directly to the output and preserve gradient flow (ensures that critical structural information is preserved at the network’s maximum depth), alongside \textit{Multi-Head Attention} to capture global spatial dependencies beyond local convolutional patches, by calculating the correlation between every single spatial location in the 8 × 8 grid simultaneously.
+\end{itemize}
+
+
+\paragraph{\normalfont\textbf{Training, EMA \& CFG:}}
+The scalar timestep $t$ is encoded via Sinusoidal Position Embeddings and added to all residual blocks. The forward diffusion process injects noise over T = 1000 timesteps using a Cosine variance schedule,
+which destroys information more smoothly than a linear schedule. The network is optimized via AdamW to minimize the Mean Squared Error (MSE) of the predicted noise. To stabilize generation, an \textbf{Exponential Moving Average (EMA)} of model weights is maintained. This "shadow" model effectively filters out high-frequency training noise and is used exclusively for inference.
+For the \textbf{Conditional Diffusion} model, class labels are mapped to the temporal embedding dimension. To enable \textbf{CFG}, these labels are randomly dropped during training. This forces the network to learn both conditional and unconditional distributions simultaneously, allowing the sampler to amplify requested styles during inference without a separate classifier.
+
+\subsection{Inference and Sampling (DDPM vs. DDIM)}
+To evaluate the trade-off between sample quality and computational cost, both models utilized two inference strategies:
+\begin{itemize}
+    \item \textbf{DDPM Sampler:} A Markovian formulation traversing the full 1000-step chain. For the conditional model, CFG pushes the unconditional prediction toward the conditional prediction via a guidance scale.
+    \item \textbf{DDIM Sampler:} A non-Markovian formulation that deterministically skips timesteps, yielding high-fidelity generation in only 100 steps using identical U-Net weights.
+\end{itemize}
+
+\section{Experimental Setup}
+
+To evaluate and compare the generative capabilities of the VAE, GAN, and Diffusion architectures, we established a three-stage protocol:
+
+\begin{enumerate}
+    \item \textbf{Configuration and Optimization:} To efficiently navigate the complex hyperparameter spaces of the DCGAN and Diffusion models, an automated search was conducted using the \textbf{Optuna} framework. By leveraging a Tree-structured Parzen Estimator (TPE) (a Bayesian optimization algorithm), Optuna probabilistically samples the most promising parameter combinations with relatively low computational cost. The VAE models were omitted from this search phase because of their inherent architectural limitation, specifically the pixel-space blurring caused by the MSE loss. This meant that any gains would likely be unnoticeable and deemed not worth the expense of tuning the hyperparameters. Therefore, VAE architectures utilized fixed configurations based on empirical best practices without undergoing this search phase
+    \item \textbf{Comparative Evaluation (20\% Subset):} All models were trained and evaluated on a constrained 20\% subset of the ArtBench dataset. This phase utilized a dual-evaluation approach with quantitative assessment via FID and KID, and qualitative visual inspection for stylistic coherence.
+    \item \textbf{Final Training (100\% Dataset):} The superior architecture of each group, identified by the highest quantitative scores and visual fidelity in the previous stage, was selected for final training on the full dataset to assess its maximum generative potential.
+\end{enumerate}
+
+\subsection{VAE Baseline Models}
+
+The VAE and cVAE use $\beta$ linearly scaled from 0 to 0.5 over the 5 first epochs and were optimized utilizing the Adam optimizer to ensure stable convergence across both the latent and reconstruction objective. They use a 64-dimensional latent space and, for the cVAE, a 32-dimensional class embedding, with both using the configuration presented on Table \ref{tab:vae_hyperparams}.
+
+\begin{table}[H]
+\centering
+\caption{Hyperparameter Configuration for VAE and cVAE Models}
+\label{tab:vae_hyperparams}
+\begin{tabular}{lr}
+\hline
+\textbf{Configuration Parameter} & \textbf{Value} \\
+\hline
+Training Epochs & 50 \\
+Evaluation Seeds & 10 \\
+Latent Dimension & 64 \\
+Learning Rate & $10^{-3}$ \\
+Batch Size & 64 \\
+$\beta$ Penalty & 0.5 \\
+KL Warmup (Epochs) & 5 \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent
+After both models were trained and tested, the following values for FID and KID were obtained, as well as a sample of images generated by both models. While VAE samples are randomly generated, samples from cVAE on the \textbf{same row} belong to the \textbf{same class}.  
+\begin{table}[H]
+\centering
+\caption{Quantitative evaluation results for VAE models on the 20\% subset.}
+\label{tab:vae_evaluation}
+\begin{tabular}{lcc}
+\hline
+\textbf{Model} & \textbf{FID} & \textbf{KID} \\
+\hline
+Standard VAE & $147.72 \pm 0.57$ & $0.125 \pm 0.001$ \\
+Conditional VAE & $154.56 \pm 0.42$ & $0.134 \pm 0.001$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.34\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/VAE_20.png}
+        \caption{Standard VAE}
+        \label{fig:vae_20}
+    \end{subfigure}
+    \hspace{0.8cm}
+    \begin{subfigure}[b]{0.34\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/cVAE_20.png}
+        \caption{cVAE}
+        \label{fig:cvae_20}
+    \end{subfigure}
+    \caption{Visual comparison of VAE samples (20\% subset).}
+    \label{fig:vae_cvae_comparison}
+\end{figure}
+
+\noindent
+As seen in Figure \ref{fig:vae_cvae_comparison}, while both models demonstrated comparable visual quality,
+it is noticeable that the cVAE could not achieve clear visual distinctions between classes. There are no relevant differences between both models, however, the standard VAE achieved superior FID and KID scores, therefore the Standard VAE was chose as the representative for the final comparison against the optimized GAN and Diffusion models.
+
+\subsection{GAN and Diffusion Optimization}
+
+\subsubsection{Hyperparameter Search Strategy:}
+
+To maximize the performance of the more computationally complex DCGAN and Diffusion architectures, we utilized \textbf{Optuna} to minimize the FID score as the primary objective function. To maintain feasibility during the 30-trial search, we utilized a scaled-down evaluation protocol as detailed in Table \ref{tab:hyperparam_search}, generating 2,000 images across 5 random seeds on the 20\% data subset.
+
+\begin{table}[H]
+\centering
+\caption{Hyperparameter Search Configuration}
+\label{tab:hyperparam_search}
+\begin{tabular}{lr}
+\hline
+\textbf{Configuration Parameter} & \textbf{Value} \\
+\hline
+Optuna Trials & 30 \\
+Training Epochs & 50 \\
+Generated Images (per evaluation) & 2000 \\
+Random Seeds & 5 \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent
+A total of 6 searches were conducted:
+\begin{itemize}
+    \item \textbf{DCGAN:} Two searches, one for each model implemented, Standard DCGAN and Conditional DCGAN, using the search space presented in Table \ref{tab:hyperparam_search_space}.
+
+\begin{table}[H]
+\centering
+\caption{Hyperparameter Search Space Configuration (DCGAN Models)}
+\label{tab:hyperparam_search_space}
+\begin{tabular}{lc}
+\hline
+\textbf{Configuration Parameter} & \textbf{Search Space / Values} \\
+\hline
+Latent Dimensions & $\{64, 96, 128\}$ \\
+Learning Rate & $[10^{-5}, 10^{-3}]$ (Log Scale) \\
+Base Channels & $\{32, 64, 128\}$ \\
+Base Updates per Generator & $\{3, 5, 7\}$ \\
+\hline
+\end{tabular}
+\end{table}
+ 
+    \item \textbf{Diffusion:} Four searches. Two searches were conducted for Standard Diffusion and two for Conditional Diffusion, with each pair comprising one search utilizing DDPM sampling and one utilizing DDIM sampling, all of which using the search space presented in Table \ref{tab:diffusion_hyperparam_search_space}.
+\end{itemize}
+
+
+\begin{table}[H]
+\centering
+\caption{Hyperparameter Search Space Configuration (Diffusion Models)}
+\label{tab:diffusion_hyperparam_search_space}
+\begin{tabular}{lc}
+\hline
+\textbf{Configuration Parameter} & \textbf{Search Space / Values} \\
+\hline
+Learning Rate & $[2 \times 10^{-5}, 5 \times 10^{-4}]$ (Log Scale) \\
+Base Channels & $\{32, 64, 96\}$ \\
+Use Attention & $\{\text{True}, \text{False}\}$ \\
+Number of Residual Blocks & $\{2, 3\}$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent
+\paragraph{\normalfont\textbf{Best Hyperparameters DCGAN:}} Following the completion of the automated search phase, the configurations that successfully minimized the FID score were identified. The optimal hyperparameters selected for both the standard DCGAN and the conditional DCGAN architectures are presented side-by-side in Table \ref{tab:best_dcgan_params}.
+
+\begin{table}[H]
+    \centering
+    \caption{Optimal Hyperparameters for DCGAN and cDCGAN Models}
+    \label{tab:best_dcgan_params}
+    \begin{minipage}{.48\textwidth}
+        \centering
+        \textbf{Standard DCGAN} \\[0.5em]
+        \begin{tabular}{lc}
+        \hline
+        \textbf{Parameter} & \textbf{Value} \\
+        \hline
+        Latent Dimensions & 96 \\
+        Learning Rate & $9.93 \times 10^{-4}$ \\
+        Base Channels & 128 \\
+        Base Updates per Generator & 3 \\
+        \hline
+        \textbf{Frozen Parameter} & \textbf{Value} \\
+        \hline
+        Optimizer & ADAM \\
+        First Momentum ($\beta_1$) & 0.0 \\
+        Second Momentum ($\beta_2$) & 0.99 \\
+        Gradient Penalty ($\lambda$) & 10 \\
+        \hline
+        \textbf{Best Trial} & \textbf{15} \\
+        \hline
+        \end{tabular}
+    \end{minipage}\hfill
+    \begin{minipage}{.48\textwidth}
+        \centering
+        \textbf{Conditional DCGAN} \\[0.5em]
+        \begin{tabular}{lc}
+        \hline
+        \textbf{Parameter} & \textbf{Value} \\
+        \hline
+        Latent Dimensions & 96 \\
+        Learning Rate & $7.97 \times 10^{-4}$ \\
+        Base Channels & 32 \\
+        Base Updates per Generator & 7 \\
+        \hline
+        \textbf{Frozen Parameter} & \textbf{Value} \\
+        \hline
+        Optimizer & ADAM \\
+        First Momentum ($\beta_1$) & 0.0 \\
+        Second Momentum ($\beta_2$) & 0.99 \\
+        Gradient Penalty ($\lambda$) & 10 \\
+        \hline
+        \textbf{Best Trial} & \textbf{1} \\
+        \hline
+        \end{tabular}
+    \end{minipage}
+\end{table}
+
+\noindent
+Both DCGAN models favored a latent dimension of 96 and high learning rates near the $10^{-3}$ upper bound. Interestingly, the conditional variant compensated for its complex structural constraints by maximizing critic updates (7 per generator step) at the cost of network capacity (32 base channels), whereas the standard model favored high capacity (128 channels) with fewer updates (3). After both searches were concluded, the following values for FID and KID were obtained, as well as a sample of images generated by both models, with the given best hyperparameters on 20\% of the dataset. While DCGAN samples are randomly generated, samples from cDCGAN on the \textbf{same row} belong to the \textbf{same class}.
+
+\begin{table}[H]
+\centering
+\caption{Quantitative evaluation results for DCGAN models on the 20\% subset.}
+\label{tab:vae_evaluation}
+\begin{tabular}{lcc}
+\hline
+\textbf{Model} & \textbf{FID} & \textbf{KID} \\
+\hline
+Standard DCGAN & $116.57 \pm 0.26$ & $0.070 \pm 0.000$ \\
+Conditional DCGAN  & $203.38 \pm 0.39$ & $0.180 \pm 0.000$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.34\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/DCGAN_20.png}
+        \caption{Standard DCGAN}
+        \label{fig:vae_20}
+    \end{subfigure}
+    \hspace{0.8cm}
+    \begin{subfigure}[b]{0.34\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/cDCGAN_20.png}
+        \caption{cDCGAN}
+        \label{fig:cvae_20}
+    \end{subfigure}
+    \caption{Visual comparison of DCGAN samples (20\% subset).}
+    \label{fig:DCGAN_comparison}
+\end{figure}
+
+
+
+\noindent
+As seen from the results, both models indicate strong signs of mode collapse, as there is very little diversity of shapes, colors and a notable grid-like pixelation in almost all samples. It is also evident that the cDCGAN struggles to isolate most of the artistic classes. This phenomenon, known as feature entanglement, is a common drawback of standard conditional GAN architectures. Because the embedded class labels are merely concatenated with the latent noise vector ($z$) at the input stage, the conditioning signal often dilutes as it propagates through the spatial upsampling layers, causing stylistic textures to bleed across class boundaries. As will be explored in the subsequent section, this structural weakness is solved by Diffusion models, which leverage mechanisms such as Classifier-Free Guidance (CFG) to mathematically enforce strict semantic separation between conditional distributions.\\
+
+\noindent
+Based on these observations and on the objective evaluation scores, it was decided that, because the cDCGAN presented very poor class separation and a much worse FID value, the standard DCGAN would be selected for the final comparison.
+
+\paragraph{\normalfont\textbf{Best Hyperparameter Diffusion:}} Following the completion of the searches the configurations that optimized the FID score were identified. The optimal hyperparameters selected for the 4 models are presented on Table \ref{tab:best_diffusion_params}.
+
+\begin{table}[H]
+    \centering
+    \caption{Optimal Hyperparameters for Standard and Conditional Diffusion Models}
+    \label{tab:best_diffusion_params}
+    
+    \begin{minipage}{.49\textwidth}
+        \centering
+        \textbf{Standard Diffusion} \\[0.5em]
+        \begin{tabular}{lcc}
+        \hline
+        \textbf{Parameter} & \textbf{DDPM} & \textbf{DDIM} \\
+        \hline
+        Learning Rate & $4.55 \times 10^{-4}$ & $3.38 \times 10^{-4}$ \\
+        Base Channels & 96 & 96 \\
+        Use Attention & False & False \\
+        Res. Blocks & 3 & 3 \\
+        \hline
+        \textbf{Frozen Parameter} & \textbf{DDPM} & \textbf{DDIM}\\
+        \hline
+        Optimizer & AdamW & AdamW \\
+        Group Norm. & 4 & 4 \\
+        EMA ($\beta$) & 0.999 & 0.999\\
+        \hline
+        \textbf{Best Trial} & \textbf{13} & \textbf{13} \\
+        \hline
+        \end{tabular}
+    \end{minipage}\hfill
+    \begin{minipage}{.49\textwidth}
+        \centering
+        \textbf{Conditional Diffusion} \\[0.5em]
+        \begin{tabular}{lcc}
+        \hline
+        \textbf{Parameter} & \textbf{DDPM} & \textbf{DDIM} \\
+        \hline
+        Learning Rate & $3.38 \times 10^{-4}$ & $4.94 \times 10^{-4}$ \\
+        Base Channels & 96 & 96 \\
+        Use Attention & False & False \\
+        Res. Blocks & 3 & 3 \\
+        \hline
+        \textbf{Frozen Parameter} & \textbf{DDPM} & \textbf{DDIM}\\
+        \hline
+        Optimizer & AdamW & AdamW \\
+        Group Norm. & 4 & 4 \\
+        EMA ($\beta$) & 0.999 & 0.999\\
+        CFG & 0.1 & 0.1 \\
+        $\omega$ & 6.0 & 6.0 \\
+        \hline
+        \textbf{Best Trial} & \textbf{11} & \textbf{25} \\
+        \hline
+        \end{tabular}
+    \end{minipage}
+\end{table}
+
+\noindent
+Across all four diffusion variations, the optimizer unanimously favored maximum network depth and capacity, consistently selecting 96 base channels and 3 residual blocks. Furthermore, all models strictly avoided the use of spatial attention (False, likely because the small $32\times32$ resolution allows standard convolutions to capture global context without the heavy computational overhead of self-attention) and clustered their optimal learning rates near the absolute upper bound of the evaluated search space. After the searches were concluded, the following values for FID and KID were obtained, as well as a sample of images generated by both models. While Diffusion samples are randomly generated, samples from cDiffusion on the \textbf{same row} belong to the \textbf{same class}.
+
+\begin{table}[H]
+\centering
+\caption{Quantitative evaluation results for Diffusion models on the full dataset (10 Seeds).}
+\label{tab:diffusion_evaluation}
+\begin{tabular}{llcc}
+\hline
+\textbf{Model} & \textbf{Sampler} & \textbf{FID} & \textbf{KID} \\
+\hline
+\multirow{2}{*}{Standard Diffusion} & DDPM & $56.84 \pm 0.71$ & $0.0234 \pm 0.0006$ \\
+ & DDIM & $55.22 \pm 0.42$ & $0.0216 \pm 0.0006$ \\
+\hline
+\multirow{2}{*}{Conditional Diffusion} & DDPM & $58.21 \pm 0.63$ & $0.0278 \pm 0.0006$ \\
+ & DDIM & $54.46 \pm 0.31$ & $0.0160 \pm 0.0005$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/diffusion_DDPM_20.png}
+        \caption{DDPM}
+        \label{fig:diff_ddpm_20}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/diffusion_DDIM_20.png}
+        \caption{DDIM}
+        \label{fig:diff_ddim_20}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/cDiffusion_DDPM_20.png}
+        \caption{C-DDPM}
+        \label{fig:cdiff_ddpm_20}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/intermediate/cDiffusion_DDIM_20.png}
+        \caption{C-DDIM}
+        \label{fig:cdiff_ddim_20}
+    \end{subfigure}
+    \caption{Visual comparison of samples (20\% subset).}
+    \label{fig:diff_comparison_grid}
+\end{figure}
+
+\noindent
+As seen in Fig. \ref{fig:diff_comparison_grid}, the diffusion family presents visual results much more promising than the rest. The images have more recognizable shapes, variety of colors, higher contrasts and no visible common artifacts. The conditional diffusion models also managed to make the intended clear distinction between classes on both sampling methods, something that other models could not achieve. This distinction is noticed not only by the different colors each class used but also by different shapes. It is also noticeable that between DDPM and DDIM on both models, the DDIM presented brighter colors but with less contrast within each sample.\\
+
+\noindent
+The model selection for the final evaluation was slightly different in this case, as a consensus could not be reached to choose just 1 model out of the 4. It would be interesting to use a conditional model, as the class separation could be observed, but the standard diffusion presented better depiction of recognizable shapes. Therefore 2 models were selected: Standard Diffusion with DDPM sampling and Conditional Diffusion with DDIM. 
+
+\section{Analysis of the Results}
+As stated in the beginning of the Experimental Setup, all models mentioned in this section were trained on the complete ArtBench dataset for an extended 200 epochs, with a comprehensive 10 seed evaluation protocol and 5000 generated images. 
+
+\subsection{VAE}
+\noindent
+As illustrated in Figure \ref{fig:vae_full_analysis}(a), the training dynamics remained stable throughout the 200 epochs. The pronounced initial drop in the KL divergence curve reflects the 5-epoch annealing strategy, as the $\beta$ penalty scaled to its full weight, it rapidly constrained the latent distributions before settling into a steady equilibrium. Throughout training, the trade-off between the reconstruction loss ($\mathcal{L}_{recon}$) and the Kullback-Leibler divergence ($\mathcal{L}_{KL}$) was continuously monitored to ensure the development of a meaningful latent space. $\mathcal{L}_{KL}$ successfully stabilized at 58.37 rather than decaying to zero, empirically proving the prevention of posterior collapse. Simultaneously, the network continuously minimized the reconstruction penalty ($\mathcal{L}_{recon}$) to a final value of 1751.48, yielding a total $\beta$-weighted training loss of 1780.67 while maintaining strong data fidelity. Visually, Figure \ref{fig:vae_full_analysis}(b) demonstrates the model transitioning from uniform noise to capturing distinct color styles by Epoch 50 as subsequent epochs yield only marginal contrast refinements. 
+
+
+
+\noindent
+A broader inspection of the fully trained samples (Figure \ref{fig:vae_full_analysis}c) highlights the inherent limitations of the architecture. The generated images suffer from severe high-frequency detail loss (the inability to resolve fine textures and crisp boundaries). This blurring is a consequence of the probabilistic bottleneck (where features are compressed into a continuous probability distribution rather than exact latent values) combined with a pixel-wise BCE reconstruction loss, which conservatively averages out spatial uncertainty to minimize penalties rather than predicting sharp edges. This visual plateau is corroborated quantitatively as evaluating 5,000 samples yielded an FID of $146.76 \pm 0.44$ and a KID of $0.130 \pm 0.001$. When compared to the constrained 20\% subset evaluation (FID: 147.72), this marginal improvement proves that the VAE's generative ceiling is dictated by its architectural capacity and loss formulation.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/VAE/loss.png} % Adjust filename if needed
+        \caption{Reconstruction Loss vs KL Divergence}
+        \label{fig:vae_curves_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/VAE/evolution.png}
+        \caption{Temporal Evolution}
+        \label{fig:vae_prog_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/VAE/final.png} % Adjust filename if needed
+        \caption{Final Generation}
+        \label{fig:vae_final_full}
+    \end{subfigure}
+    \caption{(a) Reconstruction Loss vs KL Divergence. (b) Latent space evolution with a fixed seed (42). (c) Final outputs.}
+    \label{fig:vae_full_analysis}
+\end{figure}
+
+
+\subsection{DCGAN}
+The fully trained DCGAN (WGAN-GP) achieved a FID of $46.64 \pm 0.53$ and a KID of $0.029 \pm 0.001$. When compared to its initial performance on the restricted 20\% subset (FID: $116.58 \pm 0.27$, KID: $0.107 \pm 0.001$), the DCGAN demonstrates a better data-scale improvement when compared with the VAE, as both architectures maintained the same hyperparameter in both dataset sizes (the VAE utilizing its standard baseline configuration, and the DCGAN utilizing its Optuna-optimized parameters). Furthermore, compared directly to the fully trained VAE baseline (FID: 146.76), the cWGAN-GP achieves a near 70\% reduction. 
+
+
+\noindent
+\\
+As is clear in Figure \ref{fig:gan_full_analysis}(a), the training dynamics demonstrate the stability of the Wasserstein formulation, as the Critic loss smoothly converges to a stable equilibrium ($-0.2517$) while the Generator loss oscillates downwards to $-14.7816$. This steady evolution confirms that the Gradient Penalty enforced 1-Lipschitz continuity by bounding the gradient norms, it prevented the Critic from overpowering (by possibly achieving perfect discrimination too early) the network ensuring non-vanishing gradients were passed to the Generator.
+
+\noindent
+\\
+Visually, the evolution of the generator (Figure \ref{fig:gan_full_analysis}b) shows a rapid departure from initial noise, with some structures appearing by Epoch 50. By Epoch 100 we can see a narrowing of the forms in the images with the final generated samples (Figure \ref{fig:gan_full_analysis}c) exhibiting a dramatic improvement in high-frequency fidelity compared to the VAE. Rather than averaging out spatial uncertainty into blurry color blobs, the adversarial Critic forces the Generator to faithfully generate sharp edges and textures. This improvement validates that adversarial optimization via the Wasserstein distance is superior to probabilistic pixel-wise regression for high-fidelity artistic generation.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/GAN/loss.png} % Adjust filename if needed
+        \caption{Wasserstein Training Metrics}
+        \label{fig:gan_curves_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/GAN/evolution.png}
+        \caption{Temporal Evolution}
+        \label{fig:gan_prog_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/GAN/final.png} % Adjust filename if needed
+        \caption{Final Generation}
+        \label{fig:gan_final_full}
+    \end{subfigure}
+    \caption{(a) Wasserstein loss between Generator and Critic. (b) Latent space evolution with a fixed seed (42). (c) Final outputs.}
+    \label{fig:gan_full_analysis}
+\end{figure}
+
+\subsection{Conditional Diffusion - DDIM}
+The Conditional Diffusion model achieved a FID of $34.62 \pm 0.35$ and a KID of $0.0108 \pm 0.0004$. This represents a 25\% reduction in FID when compared to the DCGAN ($46.64 \pm 0.53$). This result, when compared against the evaluation pipeline's absolute statistical floor (the "Real vs. Real" baseline sanity check, (which evaluates two disjoint subsets of real images against each other)) which yielded a FID of $21.23$. By converging to a FID of $34.62$, the Diffusion model approaches the empirical lower bound of the metric, proving that its generated distributions are rivaling the internal variance of the dataset.
+Unlike the adversarial minimax game of a GAN, the diffusion model optimizes a straightforward noise-prediction objective ($\mathcal{L}_{MSE}$). In \ref{fig:diff_full_analysis}(a), following a rapid initial descent, the MSE loss smoothly drops to a final value of $0.0619$ in epoch 200, confirming that the U-Net learned the reverse-diffusion mapping without instability.
+
+\noindent
+\\
+Visually, the generation progression (Figure \ref{fig:diff_full_analysis}b) highlights the unique iterative refinement of the DDIM sampler, moving from pure Gaussian noise to coherent structures, and finally resolving sharp, high-frequency details. The network exhibits a two-phase learning dynamic. It's clear that by Epoch 50, the macroscopic objects, structures and primary textures are already there. This corroborates with the training dynamics observed in Figure \ref{fig:diff_full_analysis}(a) where the sudden loss drop in the early epochs mean that the model quickly converged on the global mean and broad noise statistics. Throughout the remaining 150 epochs, the underlying geometry remains largely fixed while there is an increase in global contrast and saturation. Crucially, the final generated samples (Figure \ref{fig:diff_full_analysis}c) confirm that the structural weakness displayed in the conditional GAN tests has been solved. By utilizing CFG the model successfully enforces semantic separation and the resulting images exhibit both textural fidelity and very distinct stylistic isolation across the various art classes (ordered by row). 
+
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/CDIFF/loss.png} 
+        \caption{Noise Prediction Metrics}
+        \label{fig:diff_curves_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/CDIFF/evolution.png}
+        \caption{DDIM Iterative Refinement}
+        \label{fig:diff_prog_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/CDIFF/final.png} % Adjust filename to match your 10x10 grid
+        \caption{Final Generation}
+        \label{fig:diff_final_full}
+    \end{subfigure}
+    \caption{(a) MSE noise-prediction loss (b) Latent space evolution with a fixed seed (42). (c) Final outputs.}
+    \label{fig:diff_full_analysis}
+\end{figure}
+
+\noindent
+When comparing classes with the original dataset, it is clear some have achieved higher fidelity compared to others: Realism class (row 2) represents mostly people and landscapes, which the model was able to generate, as well as Ukiyo e (row 9) that has almost the exact same colors but with simpler more abstract shapes. Expressionism (row 10) class also represents mostly portraits, which are clearly being generated by the model. On the other hand, classes such as Surrealism (row 8) and Baroque (row 4) seem to have suffered from very low diversity, as they present similar colors across the generated samples, while the original images present a lot more variety between themselves. This apparent mode dropping is likely caused because of the use of CFG: the trade-off from having classes being distinct from each other results in less diversity between samples of the class itself.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.34\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/CDIFF/real.png}
+        \caption{Real Samples}
+        \label{fig:vae_20}
+    \end{subfigure}
+    \hspace{0.8cm}
+    \begin{subfigure}[b]{0.34\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/CDIFF/final.png}
+        \caption{Generated Samples}
+        \label{fig:cvae_20}
+    \end{subfigure}
+    \caption{Comparison between real and generated samples}
+    \label{fig:sample_comparison}
+\end{figure}
+
+\subsection{Diffusion - DDPM}
+
+
+The unconditional DDPM achieved a FID of $27.06 \pm 0.18$. This represents an improvement over the conditional DDIM ($34.62$). Similarly, when evaluated against the evaluation pipeline's Real vs. Real, which yielded a FID of $21.23$, the DDPM’s FID performance is very close to optimal. 
+As illustrated in Figure \ref{fig:ddpm_full_analysis}(a), the network exhibited a similar loss dynamics observed in the conditional DDIM variant, as the $\mathcal{L}_{MSE}$ curve follows a rapid initial descent (rapid acquisition of global noise statistics) and then has long stabilization phase, refining high frequency structural mappings, ultimately converging at $0.0608$ in epoch 200. Furthermore, this difference between the conditional and unconditional variants show the architectural distinction of DDIM and DDPM. While both optimize an identical $\mathcal{L}_{MSE}$ objective during training, the conditional model utilizes a deterministic, non-Markovian DDIM sampler to strictly enforce CFG class boundaries. The unconditional DDPM, however, utilizes a stochastic Markovian reverse process and the continuous re-injection of noise at each step prevents rigid sampling paths, enabling the unconstrained exploration of the data manifold.
+
+\noindent
+\\
+Visually, the DDPM progression (Figure \ref{fig:ddpm_full_analysis}b) exhibits significantly less variance between Epoch 50 and 200 than its conditional counterpart, plateauing early with only minor shifts in global brightness and color temperature. Because the network is not forced to balance structural generation with semantic constraints, it rapidly settles into a stable generation. The broader inspection of the final samples (Figure \ref{fig:ddpm_full_analysis}c) highlights this unconstrained exploration as the resulting generations display textural fidelity and blended artistic styles. 
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/DIFF/loss.png} 
+        \caption{Noise Prediction Metrics}
+        \label{fig:ddpm_curves_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/DIFF/evolution.png}
+        \caption{DDPM Iterative Refinement}
+        \label{fig:ddpm_prog_full}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.28\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/DIFF/final.png} 
+        \caption{Final Generation}
+        \label{fig:ddpm_final_full}
+    \end{subfigure}
+    \caption{(a) MSE noise-prediction loss (b) Latent space evolution with a fixed seed (42). (c) Final outputs.}
+    \label{fig:ddpm_full_analysis}
+\end{figure}
+    
+
+\subsection{Exploration of the Latent Space}
+
+When testing with interpolating between two noise vectors, standard Linear Interpolation (LERP) yielded very blurry, desaturated intermediate images. In highly dimensional spaces, sampled Gaussian noise vectors concentrate heavily on the surface of a hypersphere. Geometrically, LERP cuts directly through the interior of this sphere, shrinking the magnitude and variance of the intermediate noise. To prevent low-variance, out-of-distribution generation, Spherical Linear Interpolation (SLERP) was utilized, which traces the great-circle arc along the hypersphere, guaranteeing that all intermediate noise vectors maintain Gaussian variance. 
+
+\noindent
+\\
+As shown in Figure \ref{fig:latent_analysis}(a), we selected the most different artistic classes for SLERP interpolation (Row 1: Class 7 $\rightarrow$ 9; Row 2: Class 5 $\rightarrow$ 8). It's clear that these contrasting artistic styles are smoothly morphed in both geometric structures and color palettes without passing through dead zones (like LERP). This proves that the model learned a continuous data manifold rather than isolated islands of data.
+\noindent
+To further investigate the topological continuity of the learned dataset, SLERP was subsequently applied to the unconditional DDPM model. As shown in Figure \ref{fig:latent_analysis}(b), we interpolated between two random Gaussian noise vectors (Seed 1337 and Seed 7777). Without the boundaries enforced by CFG, the unconditional model also demonstrates a fluid traversal across the latent space.
+
+\noindent
+\\
+To assess this semantic separation on a global scale, the generated distributions were visualized using t-Distributed Stochastic Neighbor Embedding (t-SNE). In latent analysis, UMAP emphasizes the preservation of global topological distances, whereas t-SNE prioritizes the clustering of local neighborhood structures. As a preliminary baseline validation, we applied this projection to the initial Gaussian noise vectors, yielding a completely formless, uniformly scattered distribution. This clustering analysis was exclusively applied to the conditional DDIM model rather than the unconditional DDPM as the unconditional architecture encourages unconstrained exploration. By evaluating the conditional model instead (200 samples per class), the t-SNE tests whether CFG forced the network to carve isolated regions out of the continuous space. Firstly, to evaluate this separation, the t-SNE was applied directly to the flattened raw pixel arrays with a Kernel Density Estimation (KDE) for cluster visualization (Figure \ref{fig:latent_analysis}c). Measuring the Euclidean distance between raw pixels creates messy, overlapping clusters. This occurs because pixel-level Euclidean comparisons can be thrown off by minor changes in lighting or image position, causing them to somewhat miss the clear separation of style. To correct this and evaluate true perceptual fidelity, the generated images were passed through a pre-trained Inception-V3 network (serving as a standardized extractor of high-level textural and structural features). Instead of analyzing the raw pixels, this model extracts the activations from the network's penultimate layer (the deepest semantic feature space prior to final classification), effectively mapping the generated images directly into the Inception (pre-trained Inception-V3 neural network) model's own structured latent space. By applying t-SNE to these deep semantic embeddings rather than pixel arrays, the clustering reflects high-level artistic meaning and style. The resulting feature-space projection (Figure \ref{fig:latent_analysis}d), also overlaid KDE to visualize probability boundaries, reveals that, driven by CFG, the network successfully forces the images into cohesive semantic regions. Although minor overlaps occur between similar art styles, these distinct clusters visually prove that the Diffusion model successfully resolved the severe feature entanglement seen in the DCGAN runs.
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/analysis/slerp.png} 
+        \caption{Cond. SLERP}
+        \label{fig:latent_slerp_cond}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/analysis/unconditional_slerp.png} 
+        \caption{Uncond. SLERP}
+        \label{fig:latent_slerp_uncond}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/analysis/t-sne_pixel.png} 
+        \caption{Pixel t-SNE}
+        \label{fig:latent_tsne_pixel}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.24\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/analysis/t-sne.png} 
+        \caption{Feature t-SNE}
+        \label{fig:latent_tsne_feature}
+    \end{subfigure}
+    \caption{Latent space analysis. (a) Conditional SLERP traversals between distinct classes. (b) Unconditional SLERP interpolation (Seed 1337 $\rightarrow$ 7777). (c) Pixel-space t-SNE of the cDCGAN. (d) Feature-space t-SNE (Inception-V3) of the cDCGAN}
+    \label{fig:latent_analysis}
+\end{figure}
+
+\section{Conclusion}
+
+\noindent
+The analysis of the full 200-epoch training runs revealed a contrast in convergence behavior across the three model families. Both the VAE and Diffusion architectures effectively plateaued structurally by Epoch 50. For these models, the macroscopic geometries and primary textures were resolved early, with the remaining 150 epochs yielding only marginal refinements in global contrast, saturation, and color temperature. In contrast, the DCGAN was the only architecture to demonstrate clear, continuous improvement throughout the entire 200-epoch duration. Driven by the adversarial Wasserstein optimization, the generator consistently refined its high-frequency details and edge sharpness well past the initial 50 epochs, proving that the adversarial critic requires extended training to fully extract and enforce high-frequency data.
+
+
+\noindent
+\\
+The quantitative evaluation revealed a performance ceiling of the VAE model. This limitation is directly tied to its design, as the combination of a probabilistic latent bottleneck and a pixel-wise reconstruction loss forces the network to average out spatial uncertainty, resulting in blurry generations that fail to capture the high-frequency sections necessary for good 32x32 art generation. Regarding DCGAN architectures, by replacing pixel-wise regression with a Wasserstein-based Critic, the DCGAN successfully generated sharp edges and textures, drastically reducing the FID to 46.64. However, due to the way that the class label is added to the input, the conditional GAN failed to generate images similar to the artistic style of each class. On the other hand, the Diffusion architectures provided the optimal balance of fidelity, diversity, and style consistency. The unconditional DDPM achieved the best results, yielding the lowest FID of 27.06. Furthermore, the conditional DDIM variant entirely resolved the GAN's feature entanglement. By utilizing CFG, the model mathematically generated distinct, isolated semantic regions out of the latent space, achieving a highly competitive FID of 34.62 while maintaining class boundaries.
+
+\noindent
+\\
+Utilizing Optuna in the hyperparameter search proved critical for navigating the big hyperparameter spaces of the GAN and Diffusion architectures. Beyond visual and quantitative performance, these architectures exhibited stark contrasts in computational cost. The VAEs were by far the most lightweight, requiring minimal training overhead and allowing for quick inference. The DCGAN models demanded slightly higher training and validation times. In contrast, the Diffusion models imposed a 4 to 5 times bigger computational cost, with it being the most noticeable during the 30 epoch hyperparameter search.
+
+
+
+
+\noindent
+In conclusion, while VAEs offer training stability and GANs provide quick "good enough" images, Diffusion models are the superior architecture for complex visual domains, by successfully handling unconstrained latent exploration and CFG.
+
+
+
+\end{document}
+
+

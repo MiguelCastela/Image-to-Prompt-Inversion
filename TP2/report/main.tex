@@ -1,85 +1,267 @@
-\documentclass{llncs}
-% Note: When moving to Overleaf, change \documentclass{article} to \documentclass{llncs}
-% and remove the graphicx/geometry packages if they conflict with the Springer template.
+\documentclass[runningheads]{llncs}
+\usepackage{multirow}
+\usepackage{graphicx} % Required for inserting images
 
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\setcounter{tocdepth}{4}
 \usepackage{graphicx}
-\usepackage{hyperref}
-\usepackage{geometry}
-\geometry{a4paper, margin=1.2in}
-\usepackage{booktabs}
+\usepackage{subcaption}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
 \usepackage{amsmath}
-
-\title{Image-to-Prompt Inversion: \\ Recovering Latent Diffusion Prompts via Hybrid Optimization}
-\author{Miguel Castela \and Miguel Martins}
-\date{University of Coimbra, Portugal \\ \texttt{\{uc2022212972, uc2022213951\}@student.uc.pt}}
-
+\usepackage{amssymb}
+\usepackage{float}
+\usepackage{textgreek}
+\usepackage{booktabs}
+\usepackage{array}
+\setlength{\textfloatsep}{10pt plus 1pt minus 2pt}
+\setlength{\intextsep}{10pt plus 1pt minus 2pt}
 \begin{document}
+
+\title{Image-to-Prompt}
+\author{Miguel Castela\inst{1} \and
+Miguel Martins\inst{2}}
+%
+\authorrunning{M. Castela and M. Martins}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{University of Coimbra, Portugal \\
+\email{uc2022212972@student.uc.pt}\\
+\email{uc2022213951@student.uc.pt}
+}
+\date{June 2026}
+
 
 \maketitle
 
-\begin{abstract}
-This report presents a comprehensive methodology for the image-to-prompt inversion problem under a fixed latent diffusion generator. The objective is to recover discrete text prompts that accurately re-render six target images using the Latent Consistency Model (LCM) Dreamshaper v7. Because the generation setup---including the random seed, inference steps, and guidance scale---is strictly fixed, the challenge shifts from generating fluent text to an optimization problem over the discrete tokenizer vocabulary. We propose a hybrid pipeline that combines Vision-Language Model (VLM) captioning for semantic initialization, Large Language Model (LLM) driven evolutionary sampling for structural refinement, and gradient-based discrete optimization (e.g., PEZ) for final pixel-level alignment. Performance is strictly evaluated on image-side metrics: CLIP image-image similarity, LPIPS perceptual distance, and Pixel Mean Squared Error (MSE).
-\end{abstract}
-
 \section{Introduction}
+Given a fixed text-to-image generator and a set of target images that it produced, we wish to recover text prompts that, when rendered again with the same model and same configuration, reproduce images visually close to the targets. The generator is the Latent Consistency Model \texttt{SimianLuo/LCM\_Dreamshaper\_v7}, a distilled variant of the DreamShaper / Stable Diffusion family, run under a fully specified and frozen configuration (8 inference steps, guidance scale 8.0, $768\times768$, per-image seed encoded in the filename).
 
-clear description of the adopted approach and all external components;
-• reproducible experiment protocol, including model versions, hyperpa-
-rameters, and random seeds;
-• quantitative evaluation using image-side similarity metrics;
-• qualitative analysis of successes, failures, and ambiguous cases.
+\noindent
+\\
+A prompt is judged by the image it generates, not by how well it describes the target in words, so a "good" prompt that renders a different picture is a failure but a prompt that reads strangely but re-renders the target faithfully is a success. Because the generator is deterministic, this problem is an optimisation in text space with a fitness function that lives in pixel space. This reframing motivates our entire methodology as we always render the candidate prompt and score the resulting image against the target. We built a pipeline that combines two methods of the approach spectrum: a \textbf{vision–language captioning} step that gives each target a strong initial prompt, and a \textbf{closed-loop VLM-based refinement} that renders that prompt, measures how far the render is from the target, and asks a vision–language model to fix the specific errors it sees, iterating until the reconstruction stops improving. (We also explored a purely open-loop alternative that samples many prompt variations without ever rendering them; it is discussed briefly in Section~\ref{sec:openloop} but is not part of the final method.) The system is evaluated using three image-side metrics: CLIP image–image cosine similarity, LPIPS perceptual distance, and pixel MSE—requiring us to deliver for each target a ranked top-3 list of recovered prompts (18 in total), their LCM-rendered reconstructions under a fixed configuration, per-candidate metric tables, and the aggregated mean ± standard deviation for the whole set.
 
+\section{Description of the problem}
+\noindent
+The test set consists of six target images (Figure~\ref{fig:targets}) generated by the fixed LCM and the prompts that produced them are not provided. The generator is treated as a black box that is deterministic given its inputs. The only degrees of freedom we control are the text of the prompt and the optional negative prompt, with everything else (checkpoint, scheduler, step count, guidance scale, resolution, and the per-image rendering seed) being fixed by the statement. The per-image seed is the leading digits of the filename, so \texttt{7836.png}~$\rightarrow$~seed~$7836$, \texttt{1159\_25.png}~$\rightarrow$~seed~$1159$, etc.
 
+\noindent
+\\
+With this, the search space (natural-language prompts) is discrete and unbounded, so we must rely on strong priors (captioners and retrieval-style interrogators) to obtain a viable starting point for the LLM-refining, rather than searching from scratch. Second, because our prompt search is \textbf{stochastic} (we sample from a language model), the protocol must fix the LCM rendering seed across all repetitions and repeat the search across multiple optimiser seeds, reporting variability.
 
-
-Prompt inversion involves recovering the textual conditioning that generated a specific synthetic image. While traditional image captioning focuses on natural language fluency, latent diffusion models are highly sensitive to specific aesthetic tags and structural modifiers. This project addresses the challenge of recovering prompts that reproduce exact target images under a fixed text-to-image pipeline. Building upon previous explorations of generative modeling, this work treats prompt inversion not as a linguistic translation task, but as an optimization problem where the loss function is computed directly in the pixel and perceptual domains. 
-
-\section{Problem Description}
-The core task is to invert six target images generated by \texttt{SimianLuo/LCM\_Dreamshaper\_v7}. The generation environment is entirely deterministic: the model checkpoint, scheduler, 8 inference steps, 8.0 guidance scale, and 768x768 resolution are constant. Crucially, the random seed for each target is known and parsed directly from the filename. 
-
-Because the generation pipeline is locked, the textual prompt is the sole optimizable variable. The evaluation explicitly ignores the grammatical correctness of the prompt; rather, success is defined by how closely the rendered pixels match the target pixels. Consequently, methods must prioritize specific "SD-speak" modifiers (e.g., "highly detailed", "sharp focus") over coherent prose.
+\begin{figure}[H]
+    \centering
+    % TODO: replace with a 2x3 grid of the six target images from
+    % statement/TP2-students/students/tp2-chosen/
+    \fbox{\parbox[c][3.2cm][c]{0.9\textwidth}{\centering\itshape
+    Placeholder: $2\times3$ grid of the six target images
+    (rainbow hamster, hedgehog-on-cube, astronaut, orange juice, palm tree, fire character).}}
+    \caption{The six target images of the \texttt{tp2-chosen} set. Prompts are not provided; the rendering seed is encoded in each filename.}
+    \label{fig:targets}
+\end{figure}
 
 \section{Methodology and Approach}
-To navigate the vast and non-differentiable discrete prompt space, we implemented a multi-stage approach combining semantic retrieval and mathematical optimization.
+The final methodology is a single pipeline that searches over candidate prompts while scoring directly on the rendered images. It has two stages: generation of an initial prompt per target (Stage~1), and a closed-loop image-side refinement that improves it (Stage~2), followed by a shared rendering, scoring and ranking step. The refinement is seeded \emph{directly} from the Stage~1 prompt --- it renders that prompt and then iterates on it; there is no intermediate pool of pre-sampled candidates. The same fixed generator and the same three metrics are used throughout.
 
-\subsection{Phase 1: Semantic Initialization via Vision-Language Models}
-To provide a warm start, target images are processed through CLIP-Interrogator and BLIP-2. BLIP-2 provides an accurate syntactic description of the subjects, while the CLIP-Interrogator extracts the necessary stable diffusion aesthetic tags and artist references.
+\subsection{Stage 1 — Vision–language warm start}
+A blind text search over prompts is simply not feasible, there are too many word combinations to just stumble onto a good one. Because of that, a strong initial prompt is obtained for each target, from two complementary captioning sources.
 
-\subsection{Phase 2: LLM-Based Iterative Refinement}
-The initial captions are expanded into a broad set of candidate prompts using an LLM. By rendering these candidates and scoring them against the target, we establish an evolutionary loop. The LLM acts as an optimizer, mutating the highest-scoring prompts by altering spatial descriptions and keyword weights based on image-side feedback.
+\paragraph{\normalfont\textbf{CLIP-Interrogator (style / medium).}} We run \texttt{clip-interrogator} with the CLIP backbone \texttt{ViT-L-14/openai} (matching our evaluation encoder) and the \texttt{blip-large} captioner. Its \texttt{interrogate()} routine produces a BLIP caption and then retrieves, by CLIP similarity, the best-matching entries from its vocabulary banks (mediums, artists, movements, flavors), merging them into a single Stable-Diffusion-style prompt. This output captures \emph{how the image looks}: its medium, rendering style, and aesthetic descriptors.
 
-\subsection{Phase 3: Gradient-Based Discrete Optimization}
-For top candidates that plateau in pixel MSE, we employ gradient-based discrete optimization strategies such as Hard Prompts Made Easy (PEZ). Initialized with our best LLM-refined prompts, PEZ calculates gradients across the continuous embedding space and projects them back onto the discrete tokenizer vocabulary, driving the LPIPS and MSE metrics toward zero.
+\paragraph{\normalfont\textbf{BLIP-2 (subject).}} We run \texttt{Salesforce/blip2-opt-2.7b} to obtain a short phrase that names the subject of the image. The initial prompt adds this subject at the start of the CLIP-Interrogator output (unless the interrogator string already begins with it), so the prompt leads with the correct subject before describing style. This subject-vs-style disambiguation is carried through to the language-model instructions in Stage~2, which explicitly label the BLIP-2 text as the \textsc{subject} and the interrogator text as the \textsc{style / medium}. The resulting initial prompt is stored once per image and is the seed for the refinement loop.
+
+\subsection{Stage 2 — Closed-loop image-side refinement (final method)}
+This is the core of the method: it closes the loop between text and pixels. For each target we first render the Stage~1 initial prompt and score it, then run a beam search in prompt space that, at every iteration, shows the language model both the \textbf{target image} and the \textbf{current best reconstruction}, together with that reconstruction's measured metrics, and asks it to propose improved prompts. The model can therefore react to its own rendering errors, whether it is a missing object, a wrong colour or an over-saturated background, for example, instead of guessing. The vision–language model is \texttt{Qwen2.5-VL-7B-Instruct-AWQ}, run locally.
+
+\paragraph{\normalfont\textbf{Loop structure.}} The search runs for up to $12$ iterations. Each iteration proposes $5$ new prompts; all proposals are rendered and scored, and the best $3$ (beam width) are kept as the seed for the next iteration. To keep proposals genuinely diverse, the proposal step loops the resident VLM until it has gathered $5$ \emph{distinct} prompts, escalating the sampling temperature (from the base $0.8$) and rotating an instruction ``axis'' (a ``diverge harder'' hint) whenever a call returns nothing new. A second filter operates at the \emph{image} level: proposals whose renders are near-identical (perceptual dHash Hamming distance $\le 5$) to ones already kept this iteration are discarded, so the beam carries visually distinct reconstructions rather than textual paraphrases that render the same.
+
+\paragraph{\normalfont\textbf{Four objective branches.}} Because the three metrics do not always agree (Section~\ref{sec:results}), the refinement is run as \textbf{four parallel branches}, each optimising a different fitness:
+\begin{itemize}
+    \item \textbf{clip} — maximise CLIP image–image cosine similarity;
+    \item \textbf{lpips} — minimise LPIPS perceptual distance;
+    \item \textbf{mse} — minimise pixel MSE;
+    \item \textbf{composite} — maximise a scale-free standardised score $z(\text{clip}) - z(\text{lpips}) - z(\text{mse})$, where $z(\cdot)$ is the $z$-score across the current pool.
+\end{itemize}
+Each branch receives a one-line objective hint in its prompt and uses its own metric for selection. The branches share the same Stage~1 seed but explore different regions of prompt space, and their candidates are pooled together before the final ranking.
+
+\subsection{Rendering, scoring and ranking}
+Every candidate prompt is rendered with the fixed LCM configuration and the per-image seed, then scored against the target with the three metrics. Rendering uses the \textbf{negative prompt} shipped with \texttt{clip-interrogator} (\texttt{negative.txt}, 40 terms such as \emph{blurry, low quality, deformed, oversaturated}), comma-joined; because guidance scale is $8.0 > 1$ the classifier-free guidance is active and the negative prompt is honoured.
+
+\paragraph{\normalfont\textbf{Metrics.}} (i) \textbf{CLIP image–image} cosine similarity between target and render embeddings from \texttt{openai/\allowbreak clip-vit-\allowbreak large-patch14} (higher is better); (ii) \textbf{LPIPS} perceptual distance with an AlexNet backbone (lower is better); (iii) \textbf{pixel MSE} (and its root, RMSE) in $[0,1]$ pixel space (lower is better).
+
+\paragraph{\normalfont\textbf{Ranking.}} The three metrics live on different scales and disagree, so we rank candidates by a \textbf{Borda / rank-average} composite: each candidate is ranked separately on CLIP, LPIPS and MSE, and the final score is the mean of the three ranks (lower is better). This is scale-free and avoids letting any single metric's numeric range dominate. The top-3 per image, ordered by this composite, form the submission.
+
+\subsection{An open-loop alternative (explored, not used)}
+\label{sec:openloop}
+Before settling on the closed loop we also explored a purely \textbf{open-loop} alternative: expand the Stage~1 prompt into many variations with the same VLM (using round-based prompt-history conditioning so the model is shown what it has already produced and asked for something different), render all of them once, and keep the best. This never lets the model see how its own prompts render, so it cannot correct a specific mistake --- it only samples blindly and relies on the render-and-score step to pick survivors. We retain it only as a sanity check and a source of prompt diversity; all results reported below come from the closed-loop method.
 
 \section{Experimental Setup}
-All experiments were conducted using the provided Colab/VS Code environment. The rendering pipeline uses the \texttt{SimianLuo/LCM\_Dreamshaper\_v7} model. 
-Evaluation is performed using three mandatory metrics:
-\begin{itemize}
-    \item \textbf{CLIP Image-Image Similarity:} Measures the cosine similarity between the target and generated image embeddings using \texttt{openai/clip-vit-large-patch14}.
-    \item \textbf{LPIPS:} Evaluates the learned perceptual feature distance.
-    \item \textbf{Pixel MSE:} Computes the strict mean squared error in pixel space.
-\end{itemize}
+The whole pipeline shares one frozen generator and one evaluation harness; only the prompt search is stochastic. Because the search is stochastic, every stochastic component fixes an explicit seed so the run is reproducible. Table~\ref{tab:repro} is the \textbf{reproducibility matrix}: it lists every model version, hyperparameter and seed needed to reproduce the results.
 
-\section{Analysis of Results}
-\textit{[Note: Populate this section with your empirical findings. Include the Top-3 prompts for each image and discuss their visual and quantitative performance.]}
-
-\begin{table}[h]
+\begin{table}[H]
 \centering
-\caption{Quantitative Results for Target Image 1 (Example)}
-\begin{tabular}{@{}llccc@{}}
+\caption{Reproducibility matrix: fixed components, hyperparameters and random seeds of the pipeline.}
+\label{tab:repro}
+\small
+\begin{tabular}{p{3.1cm} p{5.0cm} p{4.6cm}}
 \toprule
-Rank & Prompt Snippet & CLIP ($\uparrow$) & LPIPS ($\downarrow$) & MSE ($\downarrow$) \\ \midrule
-1    & (Insert best prompt here...) & 0.92 & 0.15 & 0.04 \\
-2    & (Insert second best prompt...) & 0.89 & 0.18 & 0.06 \\
-3    & (Insert third best prompt...) & 0.85 & 0.22 & 0.09 \\ \bottomrule
+\textbf{Stage / component} & \textbf{Model / setting} & \textbf{Value} \\
+\midrule
+\multirow{7}{*}{Generator (fixed)}
+ & Checkpoint & \texttt{SimianLuo/LCM\_Dreamshaper\_v7} \\
+ & Scheduler family & LCM \\
+ & Inference steps & 8 \\
+ & \texttt{original\_inference\_steps} & 50 \\
+ & Guidance scale & 8.0 \\
+ & Resolution / dtype & $768\times768$ / float16 (CUDA) \\
+ & Render seed & leading digits of filename (1159, 7836, 9338; fallback 2026) \\
+\midrule
+\multirow{2}{*}{Negative prompt}
+ & Source & \texttt{clip-interrogator} \texttt{negative.txt} \\
+ & Terms & 40, comma-joined (CFG active at guidance 8.0) \\
+\midrule
+\multirow{3}{*}{Stage 1 warm start}
+ & CLIP-Interrogator CLIP & \texttt{ViT-L-14/openai} \\
+ & CLIP-Interrogator caption & \texttt{blip-large} \\
+ & Subject model & \texttt{Salesforce/blip2-opt-2.7b} \\
+\midrule
+\multirow{4}{*}{Stage 2 refinement VLM}
+ & Model & \texttt{Qwen2.5-VL-7B-Instruct-AWQ} \\
+ & Sampling (base) & \texttt{do\_sample=True}, $T=0.8$, top-$p=0.95$ \\
+ & Generation seed & 1234 (\texttt{set\_seed}) \\
+ & Loop & 12 iters $\times$ 5 proposals, beam 3, 4 branches; escalating $T$, dHash dedup ($\le 5$) \\
+\midrule
+\multirow{3}{*}{Evaluation}
+ & CLIP encoder & \texttt{openai/clip-vit-large-patch14} \\
+ & LPIPS backbone & AlexNet \\
+ & Pixel MSE / RMSE & $[0,1]$ pixel space \\
+\midrule
+Ranking & Composite & mean of per-metric ranks (Borda) \\
+\bottomrule
 \end{tabular}
 \end{table}
 
-The qualitative analysis of the generated candidates reveals that prompts completely lacking linguistic syntax but rich in targeted keywords drastically outperformed grammatically correct sentences, especially concerning Pixel MSE.
+\noindent
+The reported run pools the survivors of the four refinement branches into $56$ scored candidates across the six targets. The LCM rendering seed is held fixed (the filename seed), so the renderer is deterministic and only the prompt search varies. Because that search is stochastic, the protocol calls for repeating it across multiple optimiser seeds ($\ge 5$) with the rendering seed fixed; the numbers below are for a single optimiser seed ($1234$), and the multi-seed repetition to report search variability is the remaining reproducibility step.
+
+\section{Analysis of the Results}
+\label{sec:results}
+
+\subsection{Aggregate metrics across the test set}
+Table~\ref{tab:aggregate} reports the mean$\pm$std of the three main metrics at three levels of aggregation: over \emph{all} rendered candidates, over the single \emph{best} candidate per image (top-1), and over the \emph{submitted top-3}.
+
+\begin{table}[H]
+\centering
+\caption{Aggregate image-side metrics for the closed-loop method (mean$\pm$std). CLIP higher is better; LPIPS and pixel MSE lower is better.}
+\label{tab:aggregate}
+\small
+\begin{tabular}{l c c c}
+\toprule
+\textbf{Aggregation} & \textbf{CLIP\,$\uparrow$} & \textbf{LPIPS\,$\downarrow$} & \textbf{Pixel MSE\,$\downarrow$} \\
+\midrule
+All candidates ($n{=}56$) & $0.816\pm0.053$ & $0.634\pm0.051$ & $0.0402\pm0.0116$ \\
+Best per image ($n{=}6$)  & $\mathbf{0.849\pm0.072}$ & $\mathbf{0.583\pm0.076}$ & $\mathbf{0.0288\pm0.0110}$ \\
+Submitted top-3 ($n{=}16$) & $0.844\pm0.064$ & $0.611\pm0.075$ & $0.0343\pm0.0147$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+The best reconstruction per image is strong on all three metrics simultaneously (CLIP $0.849$, LPIPS $0.583$, pixel MSE $0.0288$), which is the payoff of the closed loop: by rendering and scoring at every iteration, the search can fix the specific error of the current best candidate rather than hoping a blind sample lands well. The full candidate pool is also tight (std $\le 0.05$ on CLIP and LPIPS), because the beam concentrates around good prompts instead of scattering independent samples. The gap between the best-per-image row and the submitted-top-3 row is explained in Section~\ref{sec:limits}: on several images the loop could not supply three genuinely \emph{distinct} strong survivors, so ranks~2--3 are weaker than rank~1 (and one image yields only a single candidate), which pulls the top-3 average down.
+
+\subsection{Per-image top-3 (final method)}
+Table~\ref{tab:perimage} lists the submitted top-3 per target, with the three metrics and the branch that produced each prompt. Prompts are abbreviated where long.
+
+\begin{table}[H]
+\centering
+\caption{Per-image top-3 recovered prompts (closed-loop method), with image-side metrics and the originating branch. Seed is the fixed LCM render seed.}
+\label{tab:perimage}
+\scriptsize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{l c l l c c c}
+\toprule
+\textbf{Target (seed)} & \textbf{\#} & \textbf{Branch} & \textbf{Prompt (abbreviated)} & \textbf{CLIP\,$\uparrow$} & \textbf{LPIPS\,$\downarrow$} & \textbf{MSE\,$\downarrow$} \\
+\midrule
+\multirow{3}{*}{\shortstack[l]{1159\_25\\(1159)\\orange juice}}
+ & 1 & clip & Glass of orange juice, vibrant slices, creamy, photorealistic\dots & $0.937$ & $0.501$ & $0.0236$ \\
+ & 2 & clip & Orange juice, glass with slice, vibrant oranges, creamy\dots & $0.936$ & $0.550$ & $0.0286$ \\
+ & 3 & warm & Orange juice, glass with slice of orange, 3d image, octane\dots & $0.901$ & $0.524$ & $0.0376$ \\
+\midrule
+\multirow{3}{*}{\shortstack[l]{1159\_29\\(1159)\\palm tree}}
+ & 1 & warm & The palm tree on the beach at sunset, palm on a rock\dots & $0.915$ & $0.709$ & $0.0451$ \\
+ & 2 & clip & Palm tree on rocky island in ocean at sunset, photorealistic\dots & $0.890$ & $0.748$ & $0.0633$ \\
+ & 3 & clip & Palm tree on rocky island\dots by Robert Koehler, 3d render & $0.850$ & $0.754$ & $0.0665$ \\
+\midrule
+\multirow{3}{*}{\shortstack[l]{1159\_3\\(1159)\\fire character}}
+ & 1 & mse   & ash blond female character, fire from hands, tactical gear, sword\dots & $0.849$ & $0.562$ & $0.0393$ \\
+ & 2 & mse   & ash blond female character, fire from hands\dots officially illustrated & $0.829$ & $0.618$ & $0.0418$ \\
+ & 3 & lpips & ash blond female character, anime style, armor, sword\dots & $0.839$ & $0.632$ & $0.0424$ \\
+\midrule
+\multirow{3}{*}{\shortstack[l]{1159\_7\\(1159)\\hedgehog}}
+ & 1 & clip      & A hedgehog, crystal hair, Kim Keever, checkered spikes, cube\dots & $0.741$ & $0.612$ & $0.0255$ \\
+ & 2 & composite & A hedgehog, crystal hair, Kim Keever, checkered spikes, cube\dots & $0.741$ & $0.612$ & $0.0255$ \\
+ & 3 & mse       & A hedgehog, crystal translucent hair, checkered spikes, cube\dots & $0.739$ & $0.636$ & $0.0242$ \\
+\midrule
+\shortstack[l]{7836\\(7836)\\astronaut}
+ & 1 & warm & The astronaut on a planet, bright light, flat matte painting\dots & $0.805$ & $0.518$ & $0.0163$ \\
+\midrule
+\multirow{3}{*}{\shortstack[l]{9338\\(9338)\\rainbow hamster}}
+ & 1 & clip  & A rainbow colored hamster, julie dillon, volumetric rainbow\dots & $0.845$ & $0.598$ & $0.0232$ \\
+ & 2 & lpips & A rainbow colored hamster, julie dillon, volumetric rainbow\dots & $0.845$ & $0.598$ & $0.0232$ \\
+ & 3 & mse   & A rainbow colored hamster, julie dillon, volumetric rainbow\dots & $0.845$ & $0.598$ & $0.0232$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    % TODO: for each target, place target | rank-1 render side by side from
+    % outputs/phase4_top3/
+    \fbox{\parbox[c][3.2cm][c]{0.9\textwidth}{\centering\itshape
+    Placeholder: per-target qualitative panel --- target image beside its
+    rank-1 reconstruction (closed-loop method), six rows.}}
+    \caption{Qualitative comparison of each target against its best reconstruction. Renders are produced under the fixed LCM configuration with the seed from the filename.}
+    \label{fig:qualitative}
+\end{figure}
+
+\subsection{Do the metrics agree? Rank correlations}
+Table~\ref{tab:spearman} reports Spearman rank correlations between the three metrics over the candidate pool. They justify the design choice of optimising several objectives separately rather than collapsing everything into one number.
+
+\begin{table}[H]
+\centering
+\caption{Spearman rank correlation between metrics over the closed-loop candidate pool ($n{=}56$).}
+\label{tab:spearman}
+\small
+\begin{tabular}{c c c}
+\toprule
+\textbf{CLIP vs LPIPS} & \textbf{CLIP vs MSE} & \textbf{LPIPS vs MSE} \\
+\midrule
+$-0.272$ & $+0.145$ & $+0.423$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+Two observations follow. First, \textbf{CLIP similarity is almost uncorrelated with the pixel/perceptual metrics} and is even mildly \emph{anti}-correlated with LPIPS ($-0.272$): a prompt can match the target's semantics (high CLIP) while differing in low-level layout and texture (high LPIPS). This is exactly why a single metric is a poor objective and why the composite Borda ranking and the four-branch search are warranted. Second, even LPIPS and pixel MSE --- both low-level fidelity measures --- agree only moderately ($+0.423$), so a candidate that is good in raw pixels is not guaranteed to be good perceptually. No single number captures ``closeness'' here.
+
+\subsection{Qualitative analysis: successes, failures, ambiguous cases}
+\label{sec:limits}
+\paragraph{\normalfont\textbf{Clear success --- orange juice (1159\_25).}} The easiest target. A short, literal prompt (``glass of orange juice, vibrant slices, creamy, photorealistic'') reaches CLIP $0.937$ and the lowest LPIPS of the set ($0.501$). The subject is a single, common, photographable object with no stylistic ambiguity, so both the warm start and the refinement converge quickly.
+
+\paragraph{\normalfont\textbf{High-CLIP / high-LPIPS --- palm tree (1159\_29).}} The semantics are recovered very well (CLIP $0.915$) but LPIPS stays high ($0.709$) and MSE is the second-worst of the set. The scene (a palm tree on a rock in the ocean at sunset) is correct in content but the exact composition --- horizon line, wave pattern, sun position --- is hard to pin down from text alone, so perceptual distance remains large despite strong semantic agreement. This is the clearest example of the metric disagreement quantified in Table~\ref{tab:spearman}.
+
+\paragraph{\normalfont\textbf{Hardest semantic target --- hedgehog on a cube (1159\_7).}} The lowest CLIP of the set ($0.741$). The target is an out-of-distribution concept (a hedgehog made of crystalline/translucent spikes sitting on a foam cube), which the captioners struggle to name precisely; the prompts circle the right idea but the generator cannot reliably reproduce the unusual material. Interestingly its pixel MSE is low ($0.0255$) because the muted, uniform background is easy to match --- a reminder that pixel MSE rewards background agreement as much as subject fidelity.
+
+\paragraph{\normalfont\textbf{Lowest absolute error --- astronaut (7836).}} Lowest MSE ($0.0163$) and lowest LPIPS-tier of the set, driven by the large dark, low-frequency background that is trivial to reproduce. The warm start alone was already the best candidate here, so refinement added little.
+
+\paragraph{\normalfont\textbf{Diversity collapse --- the top-3 shortfall.}} The most important limitation: the closed-loop method did \emph{not} always yield three \emph{distinct} strong candidates. For the rainbow hamster (9338) the three submitted prompts are effectively identical (same metrics across ranks~1--3), and for the astronaut (7836) only a single candidate survived de-duplication, so the submission falls short of three for that image (16 of 18 slots filled). The cause is the aggressive image-level de-duplication that, on ``easy'' images, discards near-identical renders faster than the loop can generate meaningfully different ones. Future work would relax the de-duplication threshold per image, or seed the loop with the diverse pool from the open-loop variant (Section~\ref{sec:openloop}) so that every image starts from three different prompts.
 
 \section{Conclusion}
-This report presented a hybrid methodology for prompt inversion. By treating the generator as a fixed mathematical function and shifting the search space from natural language to localized token optimization, we successfully recovered prompts that align tightly with the target distributions. Future iterations could explore more aggressive soft-prompt projections prior to discrete snapping to further minimize structural differences.
+We framed image-to-prompt inversion as text-space search under a fixed, deterministic LCM generator, scored entirely in pixel space, and built a pipeline that warm-starts from vision–language captioning (BLIP-2 subject $+$ CLIP-Interrogator style) and then refines that single prompt in a closed loop that reacts to its own renders through CLIP, LPIPS and pixel-MSE feedback across four objective branches.
 
-\end{document}IAG 
+The closed loop yields a strong best reconstruction per target (CLIP $0.849$, LPIPS $0.583$, pixel MSE $0.0288$ on average over the six images) and a tight candidate distribution, confirming the value of scoring in pixels at every iteration rather than trusting caption fluency. Its main weakness is diversity: on easy targets the image-level de-duplication collapses the loop onto near-identical prompts, so the submitted top-3 occasionally falls short of three distinct candidates. The metric analysis confirms that CLIP semantics and pixel/perceptual fidelity are only weakly correlated, validating the multi-objective design and the scale-free composite ranking. The whole pipeline is reproducible from Table~\ref{tab:repro}: every model version, hyperparameter and random seed is fixed, and the LCM rendering seed is held constant; the remaining step for full reproducibility is the multi-seed repetition of the stochastic search.
+
+\subsubsection*{Acknowledgement of sources.}
+External pretrained components: \texttt{SimianLuo/LCM\_Dreamshaper\_v7} (generator, via the \texttt{diffusers} library), \texttt{Salesforce/blip2-opt-2.7b} (subject captioning), the \texttt{clip-interrogator} library with \texttt{ViT-L-14/openai} and \texttt{blip-large} (warm-start interrogation and the \texttt{negative.txt} negative prompt), \texttt{Qwen/\allowbreak Qwen2.5-VL-\allowbreak 7B-Instruct-AWQ} (prompt refinement), \texttt{openai/\allowbreak clip-vit-\allowbreak large-patch14} (CLIP evaluation), and the \texttt{lpips} package with an AlexNet backbone (perceptual evaluation). Generative AI assistants were used during development for code scaffolding and report drafting; all design decisions, experiments and the analysis above are our own.
+
+\end{document}
