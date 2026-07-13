@@ -1,9 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Virtual environments
 .venv
 .venv.local
 .venv.*.local
 
-ArtBench-10/
-__pycache__/
-exported_data/
-images/
+# Local tooling
 CLAUDE.md
+
+# Bulky generated intermediates from the phase pipelines.
+# Rule of thumb: keep the *_top3/ deliverable renders and the JSON/CSV/JSONL
+# metrics+trace (small, needed for the report); ignore the full per-candidate
+# image dumps and the _warm/ / _dupes/ scratch renders.
+outputs/phase3/
+outputs/phase4/
+# ...but never ignore the small top-3 deliverable folders.
+!outputs/phase4_top3/
+!outputs/phase4_s*_top3/

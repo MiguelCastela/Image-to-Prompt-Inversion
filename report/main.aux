@@ -1,0 +1,68 @@
+\relax 
+\@writefile{toc}{\contentsline {title}{Image-to-Prompt}{1}{}\protected@file@percent }
+\@writefile{toc}{\authcount {2}}
+\@writefile{toc}{\contentsline {author}{Miguel Castela \and Miguel Martins}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Description of the problem}{1}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces The six target images of the \texttt  {tp2-chosen} set. Prompts are not provided; the rendering seed is encoded in each filename.}}{2}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:targets}{{1}{2}{}{}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology and Approach}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Stage 1: Vision–language initial prompt}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {CLIP-Interrogator (style / medium).}}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {BLIP-2 (subject).}}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Stage 2: Closed-loop image-side refinement}{3}{}\protected@file@percent }
+\newlabel{sec:stage2}{{3.2}{3}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {What the model is given at each step:}}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Four objective branches:}}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Rendering, scoring and ranking}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Ranking.}}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Challenges and design refinements}{5}{}\protected@file@percent }
+\newlabel{sec:failures}{{3.4}{5}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Initial prompt:}}{6}{}\protected@file@percent }
+\newlabel{par:eight}{{3.4}{6}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Diversity across candidates:}}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Setup}{8}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Reproducibility matrix}}{8}{}\protected@file@percent }
+\newlabel{tab:repro}{{1}{8}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Seeds and sampling temperature}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Two kinds of seed.}}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Temperature.}}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Analysis of the Results}{9}{}\protected@file@percent }
+\newlabel{sec:results}{{5}{9}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Aggregate metrics across the test set}{10}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Aggregate image-side metrics over the four-seed pool (mean$\pm $std). CLIP higher is better; LPIPS, pixel MSE and the composite all lower is better. The composite is the within-target rank-average ($1$ = best) and so scales with the per-target pool size ($\approx 230$ candidates); the warm start (Stage~1 initial prompt, before refinement) is shown separately for reference.}}{10}{}\protected@file@percent }
+\newlabel{tab:aggregate}{{2}{10}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Best candidate per branch}{11}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Best candidate per branch, evaluated on the branch's own objective and averaged over six targets $\times $ four seeds ($n{=}24$). Bold marks the metric each branch optimises. The composite branch is selected by the rank-average and shown for comparison.}}{11}{}\protected@file@percent }
+\newlabel{tab:perbranch}{{3}{11}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Best reconstruction per metric}{11}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Best reconstruction per (target, objective) over the four-seed pool. Columns are the six targets; rows are the target image and the CLIP-, LPIPS-, MSE- and composite-optimal renders. All renders use the fixed LCM configuration with the seed from the filename.}}{12}{}\protected@file@percent }
+\newlabel{fig:grid}{{2}{12}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Do the metrics agree? Rank correlations}{12}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Spearman rank correlation between metrics over the pooled candidate set ($n{=}5{,}551$).}}{12}{}\protected@file@percent }
+\newlabel{tab:spearman}{{4}{12}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Each point is one of the 5{,}551 pooled candidates. CLIP is nearly orthogonal to the low-level metrics (left, mildly negative), whereas LPIPS and pixel MSE are strongly positively related (right).}}{13}{}\protected@file@percent }
+\newlabel{fig:corr}{{3}{13}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Stability across seeds}{13}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Best-per-image metric means within each optimiser seed (error bars are std over the six targets). The four seeds are mutually consistent.}}{14}{}\protected@file@percent }
+\newlabel{fig:seedstab}{{4}{14}{}{}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Qualitative analysis: successes, failures, ambiguous cases}{14}{}\protected@file@percent }
+\newlabel{sec:limits}{{5.6}{14}{}{}{}}
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Clear success, orange juice (1159\_25).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {High CLIP, high LPIPS, palm tree (1159\_29).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Hardest semantic target, hedgehog (1159\_7).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Lowest absolute error, astronaut (7836).}}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\normalfont  \textbf  {Diversity recovered by multi-seed pooling.}}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{Annex A: Full submitted top-3 prompts}{16}{}\protected@file@percent }
+\newlabel{annex:top3}{{6}{16}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Full submitted top-3 prompts per target, with image-side metrics. ``Selected by'' is the objective the render is best under.}}{17}{}\protected@file@percent }
+\newlabel{tab:annex-top3}{{5}{17}{}{}{}}
+\@writefile{toc}{\contentsline {section}{Annex B: Per-seed Borda rank-1 reconstructions}{18}{}\protected@file@percent }
+\newlabel{annex:borda}{{6}{18}{}{}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Borda rank-1 reconstruction per optimiser seed (rows) and target (columns), with the target images on top for reference. All renders use the fixed LCM configuration with the seed from the filename.}}{18}{}\protected@file@percent }
+\newlabel{fig:bordagrid}{{5}{18}{}{}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Per-seed Borda rank-1 candidate for each target: image-side metrics and the branch that produced it. Composite is the within-target rank-average ($1$ = best). Seed $7890$ is the partial fifth run.}}{19}{}\protected@file@percent }
+\newlabel{tab:bordatop1}{{6}{19}{}{}{}}
+\gdef \@abspage@last{19}

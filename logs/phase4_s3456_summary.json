@@ -1,0 +1,383 @@
+{
+  "metadata": {
+    "model_id": "SimianLuo/LCM_Dreamshaper_v7",
+    "num_inference_steps": 8,
+    "guidance_scale": 8.0,
+    "original_inference_steps": 50,
+    "width": 768,
+    "height": 768,
+    "device": "cuda",
+    "dtype": "float16",
+    "seed_policy": "leading digits of target filename (fallback 2026)",
+    "top_k": 3,
+    "n_images": 6,
+    "n_candidates_total": 1357,
+    "metrics": [
+      "clip_similarity",
+      "lpips",
+      "pixel_mse",
+      "rank_composite"
+    ],
+    "ranking": "composite = mean(rank_clip, rank_lpips, rank_mse), lower better",
+    "generated_at": "2026-06-08T17:16:24.720140+00:00",
+    "phase": "phase4_refine",
+    "n_iterations": 12,
+    "n_proposals": 5,
+    "beam_width": 3,
+    "branches": [
+      "clip",
+      "lpips",
+      "mse",
+      "composite"
+    ],
+    "vlm": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
+    "do_sample": true,
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "gen_seed": 3456,
+    "negative_prompt": "none",
+    "diversity": {
+      "propose_until_n_distinct": 5,
+      "propose_patience": 5,
+      "propose_max_calls": 12,
+      "temperature_base": 0.8,
+      "temperature_step": 0.15,
+      "temperature_max": 1.2,
+      "image_dedup_max_hamming": 0,
+      "method": "convergence-guarded proposal loop + per-branch image-level dedup"
+    }
+  },
+  "aggregate": {
+    "all_candidates": {
+      "clip_similarity": {
+        "mean": 0.810254,
+        "std": 0.078542,
+        "min": 0.34391,
+        "max": 0.963082,
+        "n": 1357
+      },
+      "lpips": {
+        "mean": 0.608001,
+        "std": 0.073615,
+        "min": 0.36835,
+        "max": 0.856009,
+        "n": 1357
+      },
+      "pixel_mse": {
+        "mean": 0.03358,
+        "std": 0.013524,
+        "min": 0.008633,
+        "max": 0.086304,
+        "n": 1357
+      },
+      "rank_composite": {
+        "mean": 114.571116,
+        "std": 53.43586,
+        "min": 4.333,
+        "max": 239.0,
+        "n": 1357
+      }
+    },
+    "best_per_image_top1": {
+      "clip_similarity": {
+        "mean": 0.872397,
+        "std": 0.054361,
+        "min": 0.789642,
+        "max": 0.942325,
+        "n": 6
+      },
+      "lpips": {
+        "mean": 0.499454,
+        "std": 0.088581,
+        "min": 0.392636,
+        "max": 0.602229,
+        "n": 6
+      },
+      "pixel_mse": {
+        "mean": 0.021061,
+        "std": 0.008264,
+        "min": 0.011289,
+        "max": 0.03203,
+        "n": 6
+      },
+      "rank_composite": {
+        "mean": 6.0,
+        "std": 1.460502,
+        "min": 4.333,
+        "max": 8.333,
+        "n": 6
+      }
+    },
+    "submitted_top3": {
+      "clip_similarity": {
+        "mean": 0.864932,
+        "std": 0.061161,
+        "min": 0.747195,
+        "max": 0.963082,
+        "n": 18
+      },
+      "lpips": {
+        "mean": 0.511008,
+        "std": 0.077434,
+        "min": 0.392636,
+        "max": 0.620517,
+        "n": 18
+      },
+      "pixel_mse": {
+        "mean": 0.021637,
+        "std": 0.008638,
+        "min": 0.010782,
+        "max": 0.038703,
+        "n": 18
+      },
+      "rank_composite": {
+        "mean": 12.296278,
+        "std": 7.749245,
+        "min": 4.333,
+        "max": 28.667,
+        "n": 18
+      }
+    }
+  },
+  "metric_rank_correlations_spearman": {
+    "clip_vs_lpips": -0.3384,
+    "clip_vs_mse": -0.0287,
+    "lpips_vs_mse": 0.7232
+  },
+  "per_image": {
+    "1159_25.png": {
+      "render_seed": 1159,
+      "n_candidates": 241,
+      "best_candidate_index": 96,
+      "best_prompt": "Glass filled with bright orange juice, scattered citrus slices, glossy surface, warm ambient light, precise details!, subtle earthy tone",
+      "best_clip_similarity": 0.942325,
+      "best_lpips": 0.392636,
+      "best_pixel_mse": 0.020141,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.875079,
+          "std": 0.079027,
+          "min": 0.477656,
+          "max": 0.963082,
+          "n": 241
+        },
+        "lpips": {
+          "mean": 0.579085,
+          "std": 0.081446,
+          "min": 0.36835,
+          "max": 0.761734,
+          "n": 241
+        },
+        "pixel_mse": {
+          "mean": 0.037841,
+          "std": 0.010963,
+          "min": 0.018443,
+          "max": 0.067038,
+          "n": 241
+        },
+        "rank_composite": {
+          "mean": 121.0,
+          "std": 63.301158,
+          "min": 4.667,
+          "max": 232.0,
+          "n": 241
+        }
+      }
+    },
+    "1159_29.png": {
+      "render_seed": 1159,
+      "n_candidates": 192,
+      "best_candidate_index": 35,
+      "best_prompt": "single palm tree looming over gently swaying waves approaching sandy coastlines, ethereal dusk illuminating distant mountains beyond, intricate network of veins running along leafy branches, harmonious blend of organic forms and fluid motion",
+      "best_clip_similarity": 0.904675,
+      "best_lpips": 0.602229,
+      "best_pixel_mse": 0.030021,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.856713,
+          "std": 0.038675,
+          "min": 0.673773,
+          "max": 0.927825,
+          "n": 192
+        },
+        "lpips": {
+          "mean": 0.694309,
+          "std": 0.047629,
+          "min": 0.590451,
+          "max": 0.833298,
+          "n": 192
+        },
+        "pixel_mse": {
+          "mean": 0.046984,
+          "std": 0.01021,
+          "min": 0.02725,
+          "max": 0.07697,
+          "n": 192
+        },
+        "rank_composite": {
+          "mean": 96.500016,
+          "std": 41.478177,
+          "min": 6.667,
+          "max": 192.0,
+          "n": 192
+        }
+      }
+    },
+    "1159_3.png": {
+      "render_seed": 1159,
+      "n_candidates": 201,
+      "best_candidate_index": 167,
+      "best_prompt": "Determined ash-haired female warrior unleashing fire, detailed metal gear, swirling flames, strong posture, atmospheric mood, rich palette, saturated shades, subtle gradients, clear contrasts, refined artistry, captivating scene",
+      "best_clip_similarity": 0.831986,
+      "best_lpips": 0.579752,
+      "best_pixel_mse": 0.03203,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.794294,
+          "std": 0.026641,
+          "min": 0.674313,
+          "max": 0.850251,
+          "n": 201
+        },
+        "lpips": {
+          "mean": 0.644883,
+          "std": 0.036794,
+          "min": 0.561734,
+          "max": 0.809292,
+          "n": 201
+        },
+        "pixel_mse": {
+          "mean": 0.044799,
+          "std": 0.006692,
+          "min": 0.029474,
+          "max": 0.06272,
+          "n": 201
+        },
+        "rank_composite": {
+          "mean": 100.999975,
+          "std": 42.206773,
+          "min": 6.333,
+          "max": 196.667,
+          "n": 201
+        }
+      }
+    },
+    "1159_7.png": {
+      "render_seed": 1159,
+      "n_candidates": 241,
+      "best_candidate_index": 181,
+      "best_prompt": "Hedgehog, light tan fur, small hedgehog resting on sugary cubes, Kim Keever-inspired art, SCP-914, checkered spikes, see-through cube, outrageously fluffy, feathered head, warm-toned lighting, slightly tilted rightwards",
+      "best_clip_similarity": 0.789642,
+      "best_lpips": 0.549028,
+      "best_pixel_mse": 0.01741,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.704874,
+          "std": 0.041602,
+          "min": 0.583154,
+          "max": 0.797468,
+          "n": 241
+        },
+        "lpips": {
+          "mean": 0.627147,
+          "std": 0.046639,
+          "min": 0.501819,
+          "max": 0.751468,
+          "n": 241
+        },
+        "pixel_mse": {
+          "mean": 0.030376,
+          "std": 0.008752,
+          "min": 0.014364,
+          "max": 0.059155,
+          "n": 241
+        },
+        "rank_composite": {
+          "mean": 121.000029,
+          "std": 53.529489,
+          "min": 8.333,
+          "max": 227.0,
+          "n": 241
+        }
+      }
+    },
+    "7836.png": {
+      "render_seed": 7836,
+      "n_candidates": 241,
+      "best_candidate_index": 150,
+      "best_prompt": "The astronaut, astronaut standing amid Jupiter's shadowed side, star-studded night sky, muted purples and blacks, swirling gas giant clouds, atmospheric depth",
+      "best_clip_similarity": 0.891317,
+      "best_lpips": 0.42173,
+      "best_pixel_mse": 0.011289,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.83442,
+          "std": 0.035105,
+          "min": 0.671714,
+          "max": 0.901021,
+          "n": 241
+        },
+        "lpips": {
+          "mean": 0.546234,
+          "std": 0.05938,
+          "min": 0.42173,
+          "max": 0.748056,
+          "n": 241
+        },
+        "pixel_mse": {
+          "mean": 0.018166,
+          "std": 0.004341,
+          "min": 0.008633,
+          "max": 0.032771,
+          "n": 241
+        },
+        "rank_composite": {
+          "mean": 120.999975,
+          "std": 59.769902,
+          "min": 5.667,
+          "max": 239.0,
+          "n": 241
+        }
+      }
+    },
+    "9338.png": {
+      "render_seed": 9338,
+      "n_candidates": 241,
+      "best_candidate_index": 150,
+      "best_prompt": "Brightly colored hamster, stylized graphic design, Julie Dillon's flair, saturated tones, striking lights, squirrel king poster, Dribble sensation, textured look",
+      "best_clip_similarity": 0.874438,
+      "best_lpips": 0.451351,
+      "best_pixel_mse": 0.015476,
+      "metrics": {
+        "clip_similarity": {
+          "mean": 0.80294,
+          "std": 0.076895,
+          "min": 0.34391,
+          "max": 0.883624,
+          "n": 241
+        },
+        "lpips": {
+          "mean": 0.580016,
+          "std": 0.049256,
+          "min": 0.451351,
+          "max": 0.856009,
+          "n": 241
+        },
+        "pixel_mse": {
+          "mean": 0.0279,
+          "std": 0.012197,
+          "min": 0.012647,
+          "max": 0.086304,
+          "n": 241
+        },
+        "rank_composite": {
+          "mean": 121.000021,
+          "std": 47.464438,
+          "min": 4.333,
+          "max": 238.333,
+          "n": 241
+        }
+      }
+    }
+  }
+}
