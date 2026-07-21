@@ -105,10 +105,36 @@ edit `TARGET_DIR` to point at their location.
 
 ## Outputs
 
-For each seed, `phase4_s<seed>_top3.csv` lists the submitted top-3 prompts per
-target with their CLIP, LPIPS, and pixel MSE/RMSE values, and the corresponding
-rendered images are saved under `outputs/phase4_s<seed>_top3/`. Per-seed metrics,
-traces, and logs are collected under `logs/`.
+Each run writes two kinds of artefacts: small metrics/prompt files under `logs/`
+and rendered images under `outputs/`. Everything is namespaced by the optimiser
+seed via the `_s<seed>` suffix.
+
+Metrics and prompts (`logs/`):
+
+```
+logs/
+├── phase4_s<seed>_top3.csv        submitted top-3 prompts per target, with
+│                                  CLIP, LPIPS, and pixel MSE/RMSE values
+├── phase4_s<seed>_top3.json       the same top-3, in JSON
+├── phase4_s<seed>_summary.json    per-seed summary metrics
+├── phase4_s<seed>_results.json    full per-candidate results
+├── phase4_s<seed>_trace.jsonl     the refinement trace (one row per step)
+├── phase4_s<seed>.log             run log
+└── phase4_seed_aggregate.json     metrics aggregated across all seeds
+```
+
+Rendered images (`outputs/`):
+
+```
+outputs/
+├── phase4_s<seed>/                all rendered candidates for the seed (bulky)
+└── phase4_s<seed>_top3/           only the submitted top-3 renders per target,
+                                   named <image>_<id>_rank<n>_<metric>_cand<k>.png
+```
+
+The bulky per-candidate images under `outputs/phase4_s<seed>/` (and the
+`outputs/phase3/` intermediates) are git-ignored; only the small `_top3/` renders
+and the `logs/` metrics are kept in the repository.
 
 ## Delivery
 
@@ -116,11 +142,9 @@ traces, and logs are collected under `logs/`.
 `delivery/src/`, its pinned `requirements.txt`, and the final top-3 prompts and
 renders per seed under `delivery/top3/`. It has its own `README.md` with
 standalone run instructions. Rebuild the stripped copy from the working sources
-with `python analysis/strip_and_deliver.py`.
+with `python analysis/strip_and_deliver.py`. The full compiled write-up is in
+`report/main.pdf`.
 
-## Notes
+## Authors
 
-- Large generated intermediates under `outputs/phase3/` and `outputs/phase4/` are
-  git-ignored; only the small top-3 deliverable renders and the JSON/CSV metrics
-  are kept.
-- The full compiled write-up is in `report/main.pdf`.
+Developed as a group project for the Generative AI course.
