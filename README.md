@@ -147,4 +147,6 @@ with `python analysis/strip_and_deliver.py`. The full compiled write-up is in
 
 ## Authors
 
-Developed as a group project for the Generative AI course.
+Miguel Castela
+Miguel Martins
+
