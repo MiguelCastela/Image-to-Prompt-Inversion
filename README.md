@@ -148,5 +148,6 @@ with `python analysis/strip_and_deliver.py`. The full compiled write-up is in
 ## Authors
 
 Miguel Castela
+
 Miguel Martins
 
